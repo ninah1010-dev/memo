@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共享式聯絡簿</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .urgent-border { border-left-color: #ef4444; }
+        .important-border { border-left-color: #f97316; }
+        .normal-border { border-left-color: #3b82f6; }
+        .completed-item {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main App Container -->
+    <div id="app-container" class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-2xl mx-auto flex flex-col items-center">
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="flex flex-col items-center justify-center">
+            <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-gray-600">載入中，請稍候...</p>
+        </div>
+
+        <!-- Main App UI -->
+        <div id="main-ui" class="hidden w-full">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">共享式聯絡簿</h1>
+            <p id="user-id-display" class="text-sm text-gray-500 text-center mb-6"></p>
+
+            <!-- Action Bar: Add, Search -->
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                <input type="text" id="search-input" placeholder="搜尋提醒..." class="flex-grow p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                <button id="add-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">
+                    新增提醒
+                </button>
+            </div>
+
+            <!-- Filter and Export Bar -->
+            <div class="flex flex-wrap items-center justify-center gap-4 mb-6">
+                <select id="urgency-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="all">所有緊急程度</option>
+                    <option value="緊急">緊急</option>
+                    <option value="重要">重要</option>
+                    <option value="一般">一般</option>
+                </select>
+                <select id="tag-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="all">所有標籤</option>
+                </select>
+                <select id="sort-by" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="time">依時間排序</option>
+                    <option value="owner">依建立者排序</option>
+                </select>
+                <button id="export-btn" class="bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-gray-300 transition-colors w-full sm:w-auto">
+                    匯出記錄 (.txt)
+                </button>
+            </div>
+
+            <!-- Reminder List -->
+            <div id="reminders-list" class="space-y-4">
+                <!-- Reminders will be dynamically inserted here -->
+            </div>
+
+            <p id="no-reminders-message" class="hidden text-center text-gray-500 mt-8">
+                目前沒有提醒事項。點擊「新增提醒」來新增一個吧！
+            </p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="reminder-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">新增提醒</h2>
+            <form id="reminder-form" class="space-y-4">
+                <div>
+                    <label for="title-input" class="block text-gray-700 font-semibold mb-1">標題</label>
+                    <input type="text" id="title-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="content-input" class="block text-gray-700 font-semibold mb-1">詳細內容</label>
+                    <textarea id="content-input" rows="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label for="tags-input" class="block text-gray-700 font-semibold mb-1">標籤 (以逗號分隔)</label>
+                    <input type="text" id="tags-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
+                    <input type="datetime-local" id="time-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="urgency-input" class="block text-gray-700 font-semibold mb-1">緊急程度</label>
+                    <select id="urgency-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="一般">一般</option>
+                        <option value="重要">重要</option>
+                        <option value="緊急">緊急</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="submit" id="save-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                    <button type="button" id="delete-btn" class="bg-red-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-red-600 transition-colors hidden">
+                        刪除
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase SDK imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Firebase Initialization and Auth ---
+        let app, db, auth, userId;
+        const remindersCollectionPath = `/artifacts/${appId}/public/data/reminders`;
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const mainUi = document.getElementById('main-ui');
+        const userIdDisplay = document.getElementById('user-id-display');
+
+        // Initialize Firebase on window load
+        window.onload = async () => {
+            try {
+                if (Object.keys(firebaseConfig).length > 0) {
+                    app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    // Auth state change listener needs to be inside a function
+                    // that is called after Firebase is initialized
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            userId = user.uid;
+                            userIdDisplay.textContent = `您的使用者ID：${userId}`;
+                            loadingSpinner.classList.add('hidden');
+                            mainUi.classList.remove('hidden');
+                            setupFirestoreListener();
+                        } else {
+                            console.log("User is signed out.");
+                            userId = null;
+                            loadingSpinner.classList.remove('hidden');
+                            mainUi.classList.add('hidden');
+                        }
+                    });
+
+                    // Sign in with custom token or anonymously
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    throw new Error("Firebase config not available.");
+                }
+            } catch (error) {
+                console.error("Firebase initialization or authentication failed:", error);
+                loadingSpinner.innerHTML = `<p class="text-red-600 text-center">應用程式載入失敗。<br/>請檢查配置或重試。</p>`;
+            }
+        };
+
+        // --- UI Elements and Event Listeners ---
+        const addBtn = document.getElementById('add-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const searchInput = document.getElementById('search-input');
+        const urgencyFilter = document.getElementById('urgency-filter');
+        const tagFilter = document.getElementById('tag-filter');
+        const sortBy = document.getElementById('sort-by');
+        const remindersList = document.getElementById('reminders-list');
+        const noRemindersMessage = document.getElementById('no-reminders-message');
+
+        const reminderModal = document.getElementById('reminder-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const reminderForm = document.getElementById('reminder-form');
+        const modalTitle = document.getElementById('modal-title');
+        const titleInput = document.getElementById('title-input');
+        const contentInput = document.getElementById('content-input');
+        const tagsInput = document.getElementById('tags-input');
+        const timeInput = document.getElementById('time-input');
+        const urgencyInput = document.getElementById('urgency-input');
+        const saveBtn = document.getElementById('save-btn');
+        const deleteBtn = document.getElementById('delete-btn');
+
+        let allReminders = [];
+        let currentEditingId = null;
+
+        addBtn.addEventListener('click', () => {
+            resetForm();
+            modalTitle.textContent = '新增提醒';
+            deleteBtn.classList.add('hidden');
+            saveBtn.textContent = '儲存';
+            reminderModal.classList.remove('hidden');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            reminderModal.classList.add('hidden');
+        });
+
+        window.addEventListener('click', (event) => {
+            if (event.target === reminderModal) {
+                reminderModal.classList.add('hidden');
+            }
+        });
+
+        reminderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tagsArray = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+            const reminderData = {
+                title: titleInput.value,
+                content: contentInput.value,
+                tags: tagsArray,
+                timestamp: new Date(timeInput.value).getTime(),
+                urgency: urgencyInput.value,
+                ownerID: userId,
+                isCompleted: false,
+                createdAt: Date.now()
+            };
+
+            try {
+                if (currentEditingId) {
+                    // Update existing reminder
+                    const reminderRef = doc(db, remindersCollectionPath, currentEditingId);
+                    await updateDoc(reminderRef, reminderData);
+                } else {
+                    // Add new reminder
+                    await addDoc(collection(db, remindersCollectionPath), reminderData);
+                }
+                reminderModal.classList.add('hidden');
+                resetForm();
+            } catch (error) {
+                console.error("Error saving reminder:", error);
+            }
+        });
+
+        deleteBtn.addEventListener('click', async () => {
+            if (currentEditingId) {
+                try {
+                    await deleteDoc(doc(db, remindersCollectionPath, currentEditingId));
+                    reminderModal.classList.add('hidden');
+                } catch (error) {
+                    console.error("Error deleting reminder:", error);
+                }
+            }
+        });
+
+        exportBtn.addEventListener('click', () => {
+            exportData();
+        });
+
+        searchInput.addEventListener('input', () => {
+            renderReminders(filterReminders());
+        });
+
+        urgencyFilter.addEventListener('change', () => {
+            renderReminders(filterReminders());
+        });
+
+        tagFilter.addEventListener('change', () => {
+            renderReminders(filterReminders());
+        });
+        
+        sortBy.addEventListener('change', () => {
+            renderReminders(filterReminders());
+        });
+
+        // --- Firebase Firestore Real-time Listener ---
+        function setupFirestoreListener() {
+            const remindersRef = collection(db, remindersCollectionPath);
+            // Use onSnapshot to listen for real-time updates
+            onSnapshot(remindersRef, (snapshot) => {
+                allReminders = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                updateTagFilterOptions();
+                // Filter and sort the reminders and then render
+                renderReminders(filterReminders());
+            });
+        }
+
+        // --- Reminder Rendering and Management ---
+        function renderReminders(remindersToRender) {
+            remindersList.innerHTML = '';
+            if (remindersToRender.length === 0) {
+                noRemindersMessage.classList.remove('hidden');
+                return;
+            } else {
+                noRemindersMessage.classList.add('hidden');
+            }
+            
+            remindersToRender.forEach(reminder => {
+                const card = document.createElement('div');
+                const urgencyClass = {
+                    '緊急': 'urgent-border',
+                    '重要': 'important-border',
+                    '一般': 'normal-border'
+                }[reminder.urgency];
+                const completedClass = reminder.isCompleted ? 'completed-item' : '';
+                const isOwner = reminder.ownerID === userId;
+
+                const date = new Date(reminder.timestamp);
+                const formattedDate = date.toLocaleString('zh-TW', {
+                    year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric'
+                });
+
+                const tagsHtml = reminder.tags && reminder.tags.length > 0 ?
+                    `<div class="mt-2 flex flex-wrap gap-2">${reminder.tags.map(tag => `<span class="bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full">${tag}</span>`).join('')}</div>` : '';
+
+                card.innerHTML = `
+                    <div class="bg-gray-50 rounded-xl p-4 shadow-sm border-l-4 ${urgencyClass} transition-all duration-300 hover:shadow-lg cursor-pointer">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-lg font-semibold text-gray-800 flex-grow ${completedClass}">${reminder.title}</h3>
+                            <div class="flex items-center gap-2">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" data-id="${reminder.id}" ${reminder.isCompleted ? 'checked' : ''} class="w-5 h-5 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
+                                </label>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500 mb-2 ${completedClass}">時間: ${formattedDate}</p>
+                        <p class="text-xs text-gray-400 mb-2">建立者ID: ${reminder.ownerID}</p>
+                        ${tagsHtml}
+                        <div class="mt-2 text-gray-600 hidden reminder-content">
+                            <p>${reminder.content}</p>
+                            <p class="text-sm text-gray-500 mt-2">緊急程度: ${reminder.urgency}</p>
+                        </div>
+                        <div class="flex justify-end gap-2 mt-4 hidden reminder-actions">
+                            ${isOwner ? `
+                                <button class="edit-btn bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-blue-600 transition-colors" data-id="${reminder.id}">編輯</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Event listener to expand card content
+                card.querySelector('div').addEventListener('click', (e) => {
+                    const contentDiv = card.querySelector('.reminder-content');
+                    const actionsDiv = card.querySelector('.reminder-actions');
+                    if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL' && !e.target.closest('.edit-btn')) {
+                        contentDiv.classList.toggle('hidden');
+                        actionsDiv.classList.toggle('hidden');
+                    }
+                });
+
+                // Event listener for the "edit" button
+                card.querySelector('.edit-btn')?.addEventListener('click', () => {
+                    openEditModal(reminder);
+                });
+
+                // Event listener for the "complete" checkbox
+                card.querySelector('input[type="checkbox"]').addEventListener('change', async (e) => {
+                    const completed = e.target.checked;
+                    await updateDoc(doc(db, remindersCollectionPath, reminder.id), { isCompleted: completed });
+                });
+
+                remindersList.appendChild(card);
+            });
+        }
+
+        // --- Helper Functions ---
+        function openEditModal(reminder) {
+            currentEditingId = reminder.id;
+            modalTitle.textContent = '編輯提醒';
+            titleInput.value = reminder.title;
+            contentInput.value = reminder.content;
+            tagsInput.value = reminder.tags ? reminder.tags.join(', ') : '';
+            timeInput.value = new Date(reminder.timestamp).toISOString().slice(0, 16);
+            urgencyInput.value = reminder.urgency;
+            saveBtn.textContent = '更新';
+            deleteBtn.classList.remove('hidden');
+            reminderModal.classList.remove('hidden');
+        }
+
+        function resetForm() {
+            currentEditingId = null;
+            reminderForm.reset();
+            deleteBtn.classList.add('hidden');
+        }
+
+        function updateTagFilterOptions() {
+            const allTags = allReminders.flatMap(r => r.tags || []);
+            const uniqueTags = [...new Set(allTags)];
+            
+            tagFilter.innerHTML = `<option value="all">所有標籤</option>`;
+            uniqueTags.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+        }
+
+        function filterReminders() {
+            const searchText = searchInput.value.toLowerCase();
+            const selectedUrgency = urgencyFilter.value;
+            const selectedTag = tagFilter.value;
+            const sortMethod = sortBy.value;
+
+            const filtered = allReminders.filter(reminder => {
+                const matchesSearch = reminder.title.toLowerCase().includes(searchText) || reminder.content.toLowerCase().includes(searchText);
+                const matchesUrgency = selectedUrgency === 'all' || reminder.urgency === selectedUrgency;
+                const matchesTag = selectedTag === 'all' || (reminder.tags && reminder.tags.includes(selectedTag));
+                return matchesSearch && matchesUrgency && matchesTag;
+            });
+
+            if (sortMethod === 'time') {
+                filtered.sort((a, b) => a.timestamp - b.timestamp);
+            } else if (sortMethod === 'owner') {
+                filtered.sort((a, b) => a.ownerID.localeCompare(b.ownerID));
+            }
+
+            return filtered;
+        }
+
+        function exportData() {
+            const data = allReminders.map(r => {
+                const date = new Date(r.timestamp);
+                const formattedDate = date.toLocaleString('zh-TW');
+                const completionStatus = r.isCompleted ? '已完成' : '未完成';
+                const tagsString = r.tags ? r.tags.join(', ') : '';
+                return `標題: ${r.title}\n內容: ${r.content}\n標籤: ${tagsString}\n時間: ${formattedDate}\n緊急程度: ${r.urgency}\n狀態: ${completionStatus}\n建立者ID: ${r.ownerID}\n\n`;
+            }).join('');
+
+            const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `提醒記錄-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
