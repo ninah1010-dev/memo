@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>共享式聯絡簿</title>
-    <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter font from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,74 +13,217 @@
             font-family: 'Inter', sans-serif;
             background-color: #f3f4f6;
         }
-        .urgent-border { border-left-color: #ef4444; }
-        .important-border { border-left-color: #f97316; }
-        .normal-border { border-left-color: #3b82f6; }
+        .border-urgent-3 { border-left-color: #ef4444; }
+        .border-urgent-2 { border-left-color: #f97316; }
+        .border-urgent-1 { border-left-color: #eab308; }
+        .border-routine-2 { border-left-color: #38bdf8; }
+        .border-routine-1 { border-left-color: #84cc16; }
         .completed-item {
             text-decoration: line-through;
             color: #9ca3af;
         }
+        .calendar-day-cell:hover {
+            background-color: #e5e7eb;
+            cursor: pointer;
+        }
+        .current-day-highlight {
+            border: 2px solid rgba(239, 68, 68, 0.5);
+            border-radius: 8px;
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 flex flex-col items-center justify-start min-h-screen p-4">
 
+    <!-- Notification Bar -->
+    <div id="notification-bar" class="fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-xl shadow-lg text-white font-semibold z-50 transition-opacity duration-300 hidden">
+        <p id="notification-message"></p>
+    </div>
+
+    <!-- AI Assistant Modal -->
+    <div id="ai-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="ai-close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">AI 任務助手</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="ai-task-input" class="block text-gray-700 font-semibold mb-1">請描述您想拆分的任務</label>
+                    <input type="text" id="ai-task-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="例如：準備期末考">
+                </div>
+                <div id="ai-loading" class="flex flex-col items-center justify-center hidden">
+                    <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="mt-2 text-gray-600">正在為您拆分任務...</span>
+                </div>
+                <div id="ai-response" class="p-3 bg-gray-100 rounded-xl overflow-y-auto max-h-64 hidden"></div>
+                <button id="ai-generate-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full">
+                    生成計劃
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Main App Container -->
-    <div id="app-container" class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-2xl mx-auto flex flex-col items-center">
-        <!-- Loading Spinner -->
-        <div id="loading-spinner" class="flex flex-col items-center justify-center">
-            <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-4 text-gray-600">載入中，請稍候...</p>
+    <div id="app-container" class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-7xl mx-auto flex flex-col items-start gap-8">
+        
+        <!-- Landing UI -->
+        <div id="landing-ui" class="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 transition-all duration-300">
+            <!-- App Introduction -->
+            <div id="intro-section" class="w-full md:w-1/2 p-8 rounded-xl bg-indigo-50 text-indigo-900 shadow-lg text-center md:text-left">
+                <h1 class="text-4xl font-bold mb-4">歡迎使用共享式聯絡簿</h1>
+                <p class="text-lg font-medium mb-4">這是一個讓您和您的朋友、家人或同事共同管理提醒事項的應用程式。</p>
+                <ul class="text-sm space-y-2 text-left">
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 建立個人或公開的提醒事項。</li>
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 追蹤每日的待辦清單。</li>
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 在留言板上與他人即時溝通。</li>
+                </ul>
+            </div>
+            <!-- Login UI -->
+            <div id="login-ui" class="w-full md:w-1/2 p-8 rounded-xl shadow-lg bg-gray-50 flex flex-col items-center justify-center min-h-[50vh] transition-all duration-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">請登入或註冊</h2>
+                <input id="login-email" type="email" placeholder="電子郵件" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input id="login-password" type="password" placeholder="密碼" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors mb-4">
+                    登入
+                </button>
+                <button id="register-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors mb-4">
+                    註冊新帳號
+                </button>
+                <button id="guest-sign-in-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors">
+                    訪客登入
+                </button>
+            </div>
         </div>
 
         <!-- Main App UI -->
-        <div id="main-ui" class="hidden w-full">
-            <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">共享式聯絡簿</h1>
-            <p id="user-id-display" class="text-sm text-gray-500 text-center mb-6"></p>
-
-            <!-- Action Bar: Add, Search -->
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-                <input type="text" id="search-input" placeholder="搜尋提醒..." class="flex-grow p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                <button id="add-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full sm:w-auto">
-                    新增提醒
+        <div id="main-ui" class="hidden w-full flex flex-col md:flex-row gap-8">
+             <!-- User Info and Logout -->
+            <div class="fixed top-4 right-4 flex items-center space-x-2">
+                <span id="user-info" class="text-sm text-gray-600"></span>
+                <button id="logout-btn" class="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors">
+                    登出
                 </button>
             </div>
+            <!-- Left Side: Calendar View -->
+            <div id="calendar-view" class="w-full md:w-1/2">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-4xl font-bold text-gray-800">共享式聯絡簿</h1>
+                </div>
+                
+                <!-- Month Navigation -->
+                <div class="flex items-center justify-between mb-4">
+                    <button id="prev-month-btn" class="text-gray-600 hover:text-gray-800 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <span id="current-month-year" class="text-lg font-bold"></span>
+                    <button id="next-month-btn" class="text-gray-600 hover:text-gray-800 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Weekday headers -->
+                <div class="grid grid-cols-7 gap-1 text-center font-semibold text-gray-600">
+                    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                </div>
+                
+                <!-- Calendar Grid -->
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center text-gray-800 mt-2">
+                    <!-- Days will be dynamically inserted here -->
+                </div>
 
-            <!-- Filter and Export Bar -->
-            <div class="flex flex-wrap items-center justify-center gap-4 mb-6">
-                <select id="urgency-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="all">所有緊急程度</option>
-                    <option value="緊急">緊急</option>
-                    <option value="重要">重要</option>
-                    <option value="一般">一般</option>
-                </select>
-                <select id="tag-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="all">所有標籤</option>
-                </select>
-                <select id="sort-by" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="time">依時間排序</option>
-                    <option value="owner">依建立者排序</option>
-                </select>
-                <button id="export-btn" class="bg-gray-200 text-gray-700 font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-gray-300 transition-colors w-full sm:w-auto">
-                    匯出記錄 (.txt)
+                <!-- All months quick links -->
+                <div id="month-links" class="flex flex-wrap justify-center mt-6 gap-2">
+                    <!-- Month links will be inserted here -->
+                </div>
+                
+            </div>
+
+            <!-- Right Side: Planner View -->
+            <div id="planner-view" class="w-full md:w-1/2">
+                <!-- Day list view -->
+                <div id="day-plans-list" class="w-full">
+                    <h2 id="planner-date" class="text-2xl font-bold text-gray-800 mb-4"></h2>
+                    <button id="add-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full mb-4">
+                        新增提醒
+                    </button>
+                    
+                    <!-- Action Bar -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                        <input type="text" id="search-input" placeholder="搜尋提醒..." class="flex-grow p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        <select id="urgency-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">所有優先級</option>
+                            <option value="urgent_3">緊急 (最高)</option>
+                            <option value="urgent_2">重要</option>
+                            <option value="urgent_1">須注意 (最低)</option>
+                            <option value="routine_2">例行公事 (最高)</option>
+                            <option value="routine_1">日常 (最低)</option>
+                        </select>
+                        <select id="tag-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">所有標籤</option>
+                        </select>
+                    </div>
+
+                    <div id="reminders-list" class="space-y-4">
+                        <!-- Reminders will be dynamically inserted here -->
+                    </div>
+                    <p id="no-reminders-message" class="hidden text-center text-gray-500 mt-8">
+                        目前沒有提醒事項。
+                    </p>
+                </div>
+
+                <!-- Detailed plan view -->
+                <div id="detailed-plan-view" class="hidden w-full">
+                    <button id="back-to-list-btn" class="flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        返回
+                    </button>
+                    <h2 id="detailed-title" class="text-2xl font-bold text-gray-800 mb-2"></h2>
+                    <p id="detailed-date" class="text-sm text-gray-500 mb-4"></p>
+                    <p id="detailed-content" class="text-gray-700 mb-4"></p>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">完成清單</h3>
+                        <button id="add-checklist-item-btn" class="text-indigo-600 font-semibold text-sm hover:underline">新增項目</button>
+                    </div>
+                    <ul id="checklist" class="space-y-2 mb-4">
+                        <!-- Checklist items dynamically inserted here -->
+                    </ul>
+                    
+                    <button id="edit-plan-btn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-blue-600 transition-colors">
+                        編輯計劃
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 留言板區塊 -->
+        <div class="w-full mt-8 md:mt-12 bg-gray-50 rounded-3xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">留言板</h2>
+            <div class="space-y-4">
+                <textarea id="message-text-area" rows="4" placeholder="在這裡留下您的留言..." class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <button id="post-message-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-green-700 transition-colors">
+                    發佈留言
                 </button>
+                <div id="messages-list" class="space-y-4 max-h-96 overflow-y-auto">
+                    <!-- Messages will be dynamically loaded here -->
+                </div>
             </div>
-
-            <!-- Reminder List -->
-            <div id="reminders-list" class="space-y-4">
-                <!-- Reminders will be dynamically inserted here -->
-            </div>
-
-            <p id="no-reminders-message" class="hidden text-center text-gray-500 mt-8">
-                目前沒有提醒事項。點擊「新增提醒」來新增一個吧！
-            </p>
         </div>
     </div>
-
+    
     <!-- Add/Edit Modal -->
-    <div id="reminder-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 hidden">
+    <div id="reminder-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
         <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
             <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,17 +244,29 @@
                     <label for="tags-input" class="block text-gray-700 font-semibold mb-1">標籤 (以逗號分隔)</label>
                     <input type="text" id="tags-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-                <div>
-                    <label for="time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
-                    <input type="datetime-local" id="time-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label for="date-input" class="block text-gray-700 font-semibold mb-1">日期</label>
+                        <input type="date" id="date-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex-1">
+                        <label for="time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
+                        <input type="time" id="time-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
                 </div>
                 <div>
-                    <label for="urgency-input" class="block text-gray-700 font-semibold mb-1">緊急程度</label>
+                    <label for="urgency-input" class="block text-gray-700 font-semibold mb-1">優先級</label>
                     <select id="urgency-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="一般">一般</option>
-                        <option value="重要">重要</option>
-                        <option value="緊急">緊急</option>
+                        <option value="urgent_3">緊急 (最高)</option>
+                        <option value="urgent_2">重要</option>
+                        <option value="urgent_1">須注意 (最低)</option>
+                        <option value="routine_2">例行公事 (最高)</option>
+                        <option value="routine_1">日常 (最低)</option>
                     </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is-private-input" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 mr-2">
+                    <label for="is-private-input" class="text-gray-700">設為私人（僅自己可見）</label>
                 </div>
                 <div class="flex justify-end gap-4">
                     <button type="submit" id="save-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
@@ -126,95 +279,546 @@
             </form>
         </div>
     </div>
+    
+    <!-- AI Assistant Button -->
+    <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
+        AI
+    </button>
+    
+    <!-- New Modal for adding checklist item -->
+    <div id="checklist-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm relative">
+            <button id="close-checklist-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">新增清單項目</h2>
+            <div class="space-y-4">
+                <input type="text" id="new-checklist-item-input" placeholder="請輸入項目名稱" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div class="flex justify-end gap-2">
+                    <button id="save-checklist-item-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Message Modal -->
+    <div id="edit-message-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="close-edit-message-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">編輯留言</h2>
+            <form id="edit-message-form" class="space-y-4">
+                <input type="hidden" id="edit-message-id">
+                <div>
+                    <label for="edit-message-text-area" class="block text-gray-700 font-semibold mb-1">留言內容</label>
+                    <textarea id="edit-message-text-area" rows="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存變更
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script type="module">
-        // Firebase SDK imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set Firebase log level to debug for better console output
+        setLogLevel('Debug');
 
         // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // --- Firebase Initialization and Auth ---
-        let app, db, auth, userId;
-        const remindersCollectionPath = `/artifacts/${appId}/public/data/reminders`;
-        const loadingSpinner = document.getElementById('loading-spinner');
+        let db, auth, userId;
+        let publicReminders = [];
+        let privateReminders = [];
+        let currentMonth = new Date();
+        let selectedDate = new Date();
+        let selectedReminder = null;
+        let isEditing = false;
+        
+        const aiApiKey = "";
+
+        const appContainer = document.getElementById('app-container');
+        const landingUi = document.getElementById('landing-ui');
         const mainUi = document.getElementById('main-ui');
-        const userIdDisplay = document.getElementById('user-id-display');
+        const userInfoEl = document.getElementById('user-info');
+        const logoutBtn = document.getElementById('logout-btn');
 
-        // Initialize Firebase on window load
-        window.onload = async () => {
-            try {
-                if (Object.keys(firebaseConfig).length > 0) {
-                    app = initializeApp(firebaseConfig);
-                    db = getFirestore(app);
-                    auth = getAuth(app);
-                    
-                    // Auth state change listener needs to be inside a function
-                    // that is called after Firebase is initialized
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            userId = user.uid;
-                            userIdDisplay.textContent = `您的使用者ID：${userId}`;
-                            loadingSpinner.classList.add('hidden');
-                            mainUi.classList.remove('hidden');
-                            setupFirestoreListener();
-                        } else {
-                            console.log("User is signed out.");
-                            userId = null;
-                            loadingSpinner.classList.remove('hidden');
-                            mainUi.classList.add('hidden');
-                        }
-                    });
-
-                    // Sign in with custom token or anonymously
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    throw new Error("Firebase config not available.");
-                }
-            } catch (error) {
-                console.error("Firebase initialization or authentication failed:", error);
-                loadingSpinner.innerHTML = `<p class="text-red-600 text-center">應用程式載入失敗。<br/>請檢查配置或重試。</p>`;
-            }
-        };
-
-        // --- UI Elements and Event Listeners ---
-        const addBtn = document.getElementById('add-btn');
-        const exportBtn = document.getElementById('export-btn');
-        const searchInput = document.getElementById('search-input');
-        const urgencyFilter = document.getElementById('urgency-filter');
-        const tagFilter = document.getElementById('tag-filter');
-        const sortBy = document.getElementById('sort-by');
-        const remindersList = document.getElementById('reminders-list');
-        const noRemindersMessage = document.getElementById('no-reminders-message');
-
+        // Modal elements
         const reminderModal = document.getElementById('reminder-modal');
         const closeModalBtn = document.getElementById('close-modal-btn');
+        const addBtn = document.getElementById('add-btn');
         const reminderForm = document.getElementById('reminder-form');
         const modalTitle = document.getElementById('modal-title');
+        const saveBtn = document.getElementById('save-btn');
+        const deleteBtn = document.getElementById('delete-btn');
+        const isPrivateInput = document.getElementById('is-private-input');
         const titleInput = document.getElementById('title-input');
         const contentInput = document.getElementById('content-input');
         const tagsInput = document.getElementById('tags-input');
+        const dateInput = document.getElementById('date-input');
         const timeInput = document.getElementById('time-input');
         const urgencyInput = document.getElementById('urgency-input');
-        const saveBtn = document.getElementById('save-btn');
-        const deleteBtn = document.getElementById('delete-btn');
 
-        let allReminders = [];
-        let currentEditingId = null;
+        // Calendar elements
+        const currentMonthYearEl = document.getElementById('current-month-year');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const prevMonthBtn = document.getElementById('prev-month-btn');
+        const nextMonthBtn = document.getElementById('next-month-btn');
+        const monthLinksContainer = document.getElementById('month-links');
 
+        // Planner elements
+        const dayPlansList = document.getElementById('day-plans-list');
+        const plannerDateEl = document.getElementById('planner-date');
+        const remindersListEl = document.getElementById('reminders-list');
+        const noRemindersMessage = document.getElementById('no-reminders-message');
+        const searchInput = document.getElementById('search-input');
+        const urgencyFilter = document.getElementById('urgency-filter');
+        const tagFilter = document.getElementById('tag-filter');
+
+        // Detailed view elements
+        const detailedPlanView = document.getElementById('detailed-plan-view');
+        const backToListBtn = document.getElementById('back-to-list-btn');
+        const detailedTitleEl = document.getElementById('detailed-title');
+        const detailedDateEl = document.getElementById('detailed-date');
+        const detailedContentEl = document.getElementById('detailed-content');
+        const checklistEl = document.getElementById('checklist');
+        const addChecklistItemBtn = document.getElementById('add-checklist-item-btn');
+        const editPlanBtn = document.getElementById('edit-plan-btn');
+
+        // AI Assistant elements
+        const aiAssistantBtn = document.getElementById('ai-assistant-btn');
+        const aiModal = document.getElementById('ai-modal');
+        const aiCloseModalBtn = document.getElementById('ai-close-modal-btn');
+        const aiTaskInput = document.getElementById('ai-task-input');
+        const aiGenerateBtn = document.getElementById('ai-generate-btn');
+        const aiLoading = document.getElementById('ai-loading');
+        const aiResponse = document.getElementById('ai-response');
+
+        // Notification bar
+        const notificationBar = document.getElementById('notification-bar');
+        const notificationMessage = document.getElementById('notification-message');
+        
+        // Checklist Modal elements
+        const checklistModal = document.getElementById('checklist-modal');
+        const closeChecklistModalBtn = document.getElementById('close-checklist-modal-btn');
+        const newChecklistItemInput = document.getElementById('new-checklist-item-input');
+        const saveChecklistItemBtn = document.getElementById('save-checklist-item-btn');
+        
+        // Message Board elements
+        const messageTextArea = document.getElementById('message-text-area');
+        const postMessageBtn = document.getElementById('post-message-btn');
+        const messagesList = document.getElementById('messages-list');
+        
+        // Edit Message Modal
+        const editMessageModal = document.getElementById('edit-message-modal');
+        const closeEditMessageModalBtn = document.getElementById('close-edit-message-modal-btn');
+        const editMessageForm = document.getElementById('edit-message-form');
+        const editMessageIdInput = document.getElementById('edit-message-id');
+        const editMessageTextArea = document.getElementById('edit-message-text-area');
+        
+        // Login elements
+        const loginEmailInput = document.getElementById('login-email');
+        const loginPasswordInput = document.getElementById('login-password');
+        const signInBtn = document.getElementById('sign-in-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const guestSignInBtn = document.getElementById('guest-sign-in-btn');
+
+
+        const URGENCY_LEVELS = {
+            'urgent_3': { name: '緊急', class: 'border-urgent-3' },
+            'urgent_2': { name: '重要', class: 'border-urgent-2' },
+            'urgent_1': { name: '須注意', class: 'border-urgent-1' },
+            'routine_2': { name: '例行公事', class: 'border-routine-2' },
+            'routine_1': { name: '日常', class: 'border-routine-1' }
+        };
+
+        const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
+
+        // --- Firebase Initialization and Auth ---
+        window.onload = async function() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 檢查環境提供的自訂令牌，若存在則嘗試登入
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } catch (tokenError) {
+                        console.error("Custom token sign-in failed, falling back to anonymous sign-in.", tokenError);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                // 設置身份驗證狀態變更監聽器
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        if (user.email) {
+                            userInfoEl.textContent = `已登入: ${user.email}`;
+                        } else {
+                            userInfoEl.textContent = `訪客登入: ${userId.substring(0, 8)}...`;
+                        }
+                        setupFirestoreListeners();
+                        renderCalendar();
+                        renderDayPlans(selectedDate);
+                        showMainUi();
+                    } else {
+                        showLandingUi();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase初始化失敗:", error);
+                showNotification("Firebase初始化失敗，請檢查配置。", 'bg-red-500');
+            }
+        }
+        
+        function showMainUi() {
+            landingUi.classList.add('hidden');
+            mainUi.classList.remove('hidden');
+        }
+
+        function showLandingUi() {
+            landingUi.classList.remove('hidden');
+            mainUi.classList.add('hidden');
+        }
+
+        function showNotification(message, colorClass) {
+            notificationMessage.textContent = message;
+            notificationBar.className = `fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-xl shadow-lg font-semibold z-50 transition-opacity duration-300 ${colorClass}`;
+            notificationBar.classList.remove('hidden');
+            setTimeout(() => {
+                notificationBar.classList.add('hidden');
+            }, 3000);
+        }
+
+        function getCollectionRef(isPrivate) {
+            if (!userId) {
+                console.error("userID is not available. Cannot get collection reference.");
+                return null;
+            }
+            const collectionPath = isPrivate
+                ? `artifacts/${appId}/users/${userId}/reminders`
+                : `artifacts/${appId}/public/data/reminders`;
+            return collection(db, collectionPath);
+        }
+        
+        function getReminderDocRef(reminder) {
+             const collectionPath = reminder.isPrivate
+                ? `artifacts/${appId}/users/${userId}/reminders`
+                : `artifacts/${appId}/public/data/reminders`;
+            return doc(db, `${collectionPath}/${reminder.id}`);
+        }
+        
+        function setupFirestoreListeners() {
+            if (!userId) {
+                console.warn("User ID is not set, skipping Firestore listeners setup.");
+                return;
+            }
+
+            console.log("Setting up Firestore listeners for userId:", userId);
+            
+            // Public reminders listener
+            const publicCollection = getCollectionRef(false);
+            if (publicCollection) {
+                onSnapshot(publicCollection, (snapshot) => {
+                    publicReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderCalendar();
+                    renderDayPlans(selectedDate);
+                }, (error) => {
+                    console.error("Error listening to public reminders:", error);
+                    showNotification("無法載入公開提醒事項。", 'bg-red-500');
+                });
+            }
+
+            // Private reminders listener
+            const privateCollection = getCollectionRef(true);
+            if (privateCollection) {
+                onSnapshot(privateCollection, (snapshot) => {
+                    privateReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderCalendar();
+                    renderDayPlans(selectedDate);
+                }, (error) => {
+                    console.error("Error listening to private reminders:", error);
+                    showNotification("無法載入私人提醒事項。", 'bg-red-500');
+                });
+            }
+
+            // Message Board listener
+            const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
+            onSnapshot(messagesCollection, (snapshot) => {
+                messagesList.innerHTML = '';
+                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Sort messages by timestamp descending
+                messages.sort((a, b) => b.timestamp - a.timestamp);
+                messages.forEach(message => {
+                    const messageEl = document.createElement('div');
+                    messageEl.className = 'p-3 bg-white rounded-xl shadow-sm text-gray-800';
+                    
+                    const isMyMessage = message.creatorId === userId;
+                    const actionButtons = isMyMessage ? `
+                        <div class="flex gap-2">
+                            <button class="edit-message-btn text-blue-500 hover:text-blue-700 transition-colors" data-id="${message.id}">編輯</button>
+                            <button class="delete-message-btn text-red-500 hover:text-red-700 transition-colors" data-id="${message.id}">刪除</button>
+                        </div>
+                    ` : '';
+                    
+                    messageEl.innerHTML = `
+                        <div>
+                            <p>${message.text}</p>
+                            <p class="text-xs text-gray-400 mt-1">
+                                <span class="font-semibold">ID: ${message.creatorId}</span>
+                                <br>發佈於: ${new Date(message.timestamp).toLocaleString()}
+                            </p>
+                            ${actionButtons}
+                        </div>
+                    `;
+                    messagesList.appendChild(messageEl);
+                });
+            }, (error) => {
+                console.error("Error listening to messages:", error);
+                showNotification("無法載入留言板訊息。", 'bg-red-500');
+            });
+        }
+
+        // --- Calendar & Planner Rendering ---
+        function renderCalendar() {
+            currentMonthYearEl.textContent = `${currentMonth.getFullYear()} 年 ${monthNames[currentMonth.getMonth()]}`;
+            calendarGrid.innerHTML = '';
+            
+            const startDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+            const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+            const today = new Date();
+
+            // Render empty cells for leading days
+            for (let i = 0; i < startDay; i++) {
+                calendarGrid.innerHTML += `<div></div>`;
+            }
+
+            // Render day cells
+            for (let i = 1; i < daysInMonth + 1; i++) {
+                const day = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
+                const isToday = day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() === today.getDate();
+                
+                let dayClasses = `p-2 rounded-xl text-center calendar-day-cell relative`;
+                if (isToday) {
+                    dayClasses += ` current-day-highlight`;
+                }
+                
+                let remindersForDay = [...publicReminders, ...privateReminders].filter(r => {
+                    const reminderDate = r.time instanceof Timestamp ? r.time.toDate() : new Date(r.time);
+                    return reminderDate.getFullYear() === day.getFullYear() && reminderDate.getMonth() === day.getMonth() && reminderDate.getDate() === day.getDate();
+                });
+
+                const urgencySortOrder = { 'urgent_3': 1, 'urgent_2': 2, 'urgent_1': 3, 'routine_2': 4, 'routine_1': 5 };
+                remindersForDay.sort((a, b) => urgencySortOrder[a.urgency] - urgencySortOrder[b.urgency]);
+                
+                const dotClasses = {
+                    'urgent_3': 'bg-red-600', 'urgent_2': 'bg-orange-500', 'urgent_1': 'bg-yellow-500',
+                    'routine_2': 'bg-sky-400', 'routine_1': 'bg-lime-500'
+                };
+
+                let dotHtml = '';
+                remindersForDay.forEach((r, index) => {
+                    if (index < 3) { // Show up to 3 dots
+                        dotHtml += `<span class="h-1 w-1 rounded-full ${dotClasses[r.urgency]} inline-block mx-0.5"></span>`;
+                    }
+                });
+                
+                calendarGrid.innerHTML += `
+                    <div class="${dayClasses}" data-date="${day.toISOString()}">
+                        <span>${i}</span>
+                        <div class="absolute bottom-1 left-0 right-0 flex justify-center space-x-0.5">
+                            ${dotHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Render all month links
+            monthLinksContainer.innerHTML = '';
+            monthNames.forEach((month, index) => {
+                const link = document.createElement('button');
+                link.textContent = month;
+                link.className = 'px-3 py-1 rounded-full text-sm font-medium transition-colors hover:bg-gray-200';
+                link.addEventListener('click', () => {
+                    currentMonth.setMonth(index);
+                    renderCalendar();
+                    renderDayPlans(selectedDate);
+                });
+                monthLinksContainer.appendChild(link);
+            });
+        }
+
+        function renderDayPlans(date) {
+            plannerDateEl.textContent = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+            remindersListEl.innerHTML = '';
+            
+            const allReminders = [...publicReminders, ...privateReminders];
+            
+            let filteredReminders = allReminders.filter(r => {
+                const reminderDate = r.time instanceof Timestamp ? r.time.toDate() : new Date(r.time);
+                return reminderDate.getFullYear() === date.getFullYear() && reminderDate.getMonth() === date.getMonth() && reminderDate.getDate() === date.getDate();
+            });
+
+            // Apply search filter
+            const searchTerm = searchInput.value.toLowerCase();
+            if (searchTerm) {
+                filteredReminders = filteredReminders.filter(r => r.title.toLowerCase().includes(searchTerm) || r.content.toLowerCase().includes(searchTerm) || (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm))));
+            }
+
+            // Apply urgency filter
+            const urgencyVal = urgencyFilter.value;
+            if (urgencyVal !== 'all') {
+                filteredReminders = filteredReminders.filter(r => r.urgency === urgencyVal);
+            }
+
+            // Apply tag filter
+            const tagVal = tagFilter.value;
+            if (tagVal !== 'all') {
+                filteredReminders = filteredReminders.filter(r => r.tags && r.tags.includes(tagVal));
+            }
+
+            // Sort by time
+            filteredReminders.sort((a, b) => (a.time instanceof Timestamp ? a.time.toDate() : new Date(a.time)) - (b.time instanceof Timestamp ? b.time.toDate() : new Date(b.time)));
+
+            if (filteredReminders.length === 0) {
+                noRemindersMessage.classList.remove('hidden');
+            } else {
+                noRemindersMessage.classList.add('hidden');
+                filteredReminders.forEach(reminder => {
+                    const reminderEl = document.createElement('div');
+                    const reminderTime = reminder.time instanceof Timestamp ? reminder.time.toDate() : new Date(reminder.time);
+                    const timeString = reminderTime.toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const urgencyClass = URGENCY_LEVELS[reminder.urgency]?.class || '';
+                    const isCompleted = reminder.checklist && reminder.checklist.every(item => item.completed);
+                    const completedClass = isCompleted ? 'opacity-50' : '';
+                    
+                    const isEditable = reminder.creatorId === userId || !reminder.isPrivate;
+                    
+                    const tagsHtml = reminder.tags && reminder.tags.length > 0
+                        ? reminder.tags.map(tag => `<span class="bg-gray-200 text-gray-700 rounded-full px-2 py-0.5 text-xs">${tag}</span>`).join(' ')
+                        : '';
+
+                    reminderEl.className = `p-4 bg-gray-50 rounded-xl shadow-sm border-l-4 ${urgencyClass} transition-shadow hover:shadow-lg ${completedClass}`;
+                    reminderEl.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-semibold text-lg text-gray-800">${reminder.title}</h3>
+                            <span class="text-sm font-medium text-gray-500">${timeString}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${reminder.content.substring(0, 50)}...</p>
+                        <div class="flex items-center justify-between text-xs text-gray-400">
+                            <span>優先級: ${URGENCY_LEVELS[reminder.urgency]?.name || '未知'}</span>
+                            <span class="flex items-center">${reminder.isPrivate ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H10a2 2 0 01-2-2v-4a2 2 0 012-2z" /></svg>私人` : '公開'}</span>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            ${tagsHtml}
+                        </div>
+                    `;
+                    reminderEl.addEventListener('click', () => {
+                        selectedReminder = reminder;
+                        showDetailedView(reminder);
+                    });
+                    remindersListEl.appendChild(reminderEl);
+                });
+            }
+            
+            updateTagFilterOptions();
+        }
+        
+        function updateTagFilterOptions() {
+            const allTags = new Set();
+            const allReminders = [...publicReminders, ...privateReminders];
+            allReminders.forEach(r => {
+                if (r.tags) {
+                    r.tags.forEach(tag => allTags.add(tag));
+                }
+            });
+            tagFilter.innerHTML = '<option value="all">所有標籤</option>';
+            Array.from(allTags).sort().forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+        }
+        
+        function showDetailedView(reminder) {
+            dayPlansList.classList.add('hidden');
+            detailedPlanView.classList.remove('hidden');
+
+            detailedTitleEl.textContent = reminder.title;
+            const reminderDate = reminder.time instanceof Timestamp ? reminder.time.toDate() : new Date(reminder.time);
+            detailedDateEl.textContent = `${reminderDate.getFullYear()} 年 ${reminderDate.getMonth() + 1} 月 ${reminderDate.getDate()} 日 ${reminderDate.toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+            detailedContentEl.textContent = reminder.content;
+            
+            // Show/hide edit and delete buttons based on ownership and privacy
+            const isEditable = reminder.creatorId === userId || !reminder.isPrivate;
+            if (isEditable) {
+                editPlanBtn.classList.remove('hidden');
+            } else {
+                editPlanBtn.classList.add('hidden');
+            }
+
+            renderChecklist(reminder);
+        }
+
+        function renderChecklist(reminder) {
+            checklistEl.innerHTML = '';
+            addChecklistItemBtn.classList.toggle('hidden', reminder.creatorId !== userId);
+
+            if (!reminder.checklist) {
+                reminder.checklist = [];
+            }
+            
+            reminder.checklist.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 bg-gray-100 rounded-xl';
+                li.innerHTML = `
+                    <div class="flex items-center">
+                        <input type="checkbox" data-index="${index}" class="h-4 w-4 text-indigo-600 rounded mr-2" ${item.completed ? 'checked' : ''}>
+                        <span class="${item.completed ? 'completed-item' : ''} text-gray-700">${item.text}</span>
+                    </div>
+                `;
+                if (reminder.creatorId === userId) {
+                     li.innerHTML += `
+                        <button class="remove-checklist-item text-red-400 hover:text-red-600 transition-colors" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    `;
+                }
+                checklistEl.appendChild(li);
+            });
+        }
+        
+        // --- Event Listeners ---
         addBtn.addEventListener('click', () => {
-            resetForm();
+            isEditing = false;
+            selectedReminder = null;
             modalTitle.textContent = '新增提醒';
+            reminderForm.reset();
             deleteBtn.classList.add('hidden');
-            saveBtn.textContent = '儲存';
             reminderModal.classList.remove('hidden');
         });
 
@@ -222,238 +826,438 @@
             reminderModal.classList.add('hidden');
         });
 
-        window.addEventListener('click', (event) => {
-            if (event.target === reminderModal) {
-                reminderModal.classList.add('hidden');
-            }
-        });
-
         reminderForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const tagsArray = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+            
+            const title = titleInput.value;
+            const content = contentInput.value;
+            const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            const dateStr = dateInput.value;
+            const timeStr = timeInput.value;
+
+            // Combine date and time strings to create a full Date object
+            const combinedDateTime = `${dateStr}T${timeStr}`;
+            const time = new Date(combinedDateTime);
+
+            const urgency = urgencyInput.value;
+            const isPrivate = isPrivateInput.checked;
+
             const reminderData = {
-                title: titleInput.value,
-                content: contentInput.value,
-                tags: tagsArray,
-                timestamp: new Date(timeInput.value).getTime(),
-                urgency: urgencyInput.value,
-                ownerID: userId,
-                isCompleted: false,
-                createdAt: Date.now()
+                title,
+                content,
+                tags,
+                time: Timestamp.fromDate(time),
+                urgency,
+                isPrivate,
+                creatorId: userId,
+                checklist: []
             };
 
             try {
-                if (currentEditingId) {
-                    // Update existing reminder
-                    const reminderRef = doc(db, remindersCollectionPath, currentEditingId);
-                    await updateDoc(reminderRef, reminderData);
+                if (isEditing) {
+                    await updateDoc(getReminderDocRef(selectedReminder), reminderData);
+                    showNotification("提醒事項已更新。", 'bg-green-500');
                 } else {
-                    // Add new reminder
-                    await addDoc(collection(db, remindersCollectionPath), reminderData);
+                    await addDoc(getCollectionRef(isPrivate), reminderData);
+                    showNotification("提醒事項已新增。", 'bg-green-500');
                 }
                 reminderModal.classList.add('hidden');
-                resetForm();
-            } catch (error) {
-                console.error("Error saving reminder:", error);
+            } catch (e) {
+                console.error("Error adding/updating document: ", e);
+                showNotification("儲存提醒事項時出錯。", 'bg-red-500');
             }
         });
 
         deleteBtn.addEventListener('click', async () => {
-            if (currentEditingId) {
+            if (selectedReminder) {
                 try {
-                    await deleteDoc(doc(db, remindersCollectionPath, currentEditingId));
+                    await deleteDoc(getReminderDocRef(selectedReminder));
                     reminderModal.classList.add('hidden');
-                } catch (error) {
-                    console.error("Error deleting reminder:", error);
+                    dayPlansList.classList.remove('hidden');
+                    detailedPlanView.classList.add('hidden');
+                    showNotification("提醒事項已刪除。", 'bg-green-500');
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
+                    showNotification("刪除提醒事項時出錯。", 'bg-red-500');
                 }
             }
         });
 
-        exportBtn.addEventListener('click', () => {
-            exportData();
+        editPlanBtn.addEventListener('click', () => {
+            isEditing = true;
+            modalTitle.textContent = '編輯提醒';
+            titleInput.value = selectedReminder.title;
+            contentInput.value = selectedReminder.content;
+            tagsInput.value = selectedReminder.tags ? selectedReminder.tags.join(', ') : '';
+            
+            // Populate new date and time fields
+            const reminderTime = selectedReminder.time instanceof Timestamp ? selectedReminder.time.toDate() : new Date(selectedReminder.time);
+            dateInput.value = reminderTime.toISOString().substring(0, 10);
+            timeInput.value = reminderTime.toISOString().substring(11, 16);
+            
+            urgencyInput.value = selectedReminder.urgency;
+            isPrivateInput.checked = selectedReminder.isPrivate;
+            deleteBtn.classList.remove('hidden');
+            reminderModal.classList.remove('hidden');
+        });
+        
+        backToListBtn.addEventListener('click', () => {
+            dayPlansList.classList.remove('hidden');
+            detailedPlanView.classList.add('hidden');
+            selectedReminder = null;
+        });
+
+        calendarGrid.addEventListener('click', (e) => {
+            const dayCell = e.target.closest('.calendar-day-cell');
+            if (dayCell) {
+                selectedDate = new Date(dayCell.dataset.date);
+                renderDayPlans(selectedDate);
+            }
+        });
+        
+        prevMonthBtn.addEventListener('click', () => {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
         });
 
         searchInput.addEventListener('input', () => {
-            renderReminders(filterReminders());
+            renderDayPlans(selectedDate);
         });
 
         urgencyFilter.addEventListener('change', () => {
-            renderReminders(filterReminders());
+            renderDayPlans(selectedDate);
         });
 
         tagFilter.addEventListener('change', () => {
-            renderReminders(filterReminders());
+            renderDayPlans(selectedDate);
+        });
+
+        // Event listener for the "Add Item" button
+        addChecklistItemBtn.addEventListener('click', () => {
+            if (selectedReminder && selectedReminder.creatorId === userId) {
+                checklistModal.classList.remove('hidden');
+                newChecklistItemInput.focus();
+            } else {
+                showNotification("您沒有權限新增清單項目。", 'bg-red-500');
+            }
+        });
+
+        // Event listener for the "Save" button in the new checklist modal
+        saveChecklistItemBtn.addEventListener('click', async () => {
+            const newItemText = newChecklistItemInput.value.trim();
+            if (newItemText && selectedReminder) {
+                const checklist = selectedReminder.checklist || [];
+                checklist.push({ text: newItemText, completed: false });
+                await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
+                showNotification("項目已成功新增。", 'bg-green-500');
+                checklistModal.classList.add('hidden');
+                newChecklistItemInput.value = "";
+            } else {
+                showNotification("項目名稱不能為空。", 'bg-red-500');
+            }
         });
         
-        sortBy.addEventListener('change', () => {
-            renderReminders(filterReminders());
+        closeChecklistModalBtn.addEventListener('click', () => {
+            checklistModal.classList.add('hidden');
+            newChecklistItemInput.value = "";
         });
 
-        // --- Firebase Firestore Real-time Listener ---
-        function setupFirestoreListener() {
-            const remindersRef = collection(db, remindersCollectionPath);
-            // Use onSnapshot to listen for real-time updates
-            onSnapshot(remindersRef, (snapshot) => {
-                allReminders = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                updateTagFilterOptions();
-                // Filter and sort the reminders and then render
-                renderReminders(filterReminders());
-            });
-        }
+        checklistEl.addEventListener('click', async (e) => {
+            const target = e.target;
+            const index = target.dataset.index;
+            if (target.matches('input[type="checkbox"]')) {
+                 if (selectedReminder.creatorId === userId) {
+                    const checklist = selectedReminder.checklist;
+                    checklist[index].completed = target.checked;
+                    await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
+                 } else {
+                    target.checked = !target.checked;
+                    showNotification("您沒有權限編輯此公開提醒事項。", 'bg-red-500');
+                 }
+            } else if (target.closest('.remove-checklist-item')) {
+                 if (selectedReminder.creatorId === userId) {
+                    const checklist = selectedReminder.checklist;
+                    checklist.splice(index, 1);
+                    await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
+                 }
+            }
+        });
+        
+        // AI Assistant logic
+        aiAssistantBtn.addEventListener('click', () => {
+            aiModal.classList.remove('hidden');
+            aiResponse.classList.add('hidden');
+            aiTaskInput.value = "";
+        });
 
-        // --- Reminder Rendering and Management ---
-        function renderReminders(remindersToRender) {
-            remindersList.innerHTML = '';
-            if (remindersToRender.length === 0) {
-                noRemindersMessage.classList.remove('hidden');
+        aiCloseModalBtn.addEventListener('click', () => {
+            aiModal.classList.add('hidden');
+        });
+
+        aiGenerateBtn.addEventListener('click', async () => {
+            const userPrompt = aiTaskInput.value.trim();
+            if (!userPrompt) {
+                showNotification("請輸入任務描述。", 'bg-red-500');
                 return;
-            } else {
-                noRemindersMessage.classList.add('hidden');
             }
-            
-            remindersToRender.forEach(reminder => {
-                const card = document.createElement('div');
-                const urgencyClass = {
-                    '緊急': 'urgent-border',
-                    '重要': 'important-border',
-                    '一般': 'normal-border'
-                }[reminder.urgency];
-                const completedClass = reminder.isCompleted ? 'completed-item' : '';
-                const isOwner = reminder.ownerID === userId;
 
-                const date = new Date(reminder.timestamp);
-                const formattedDate = date.toLocaleString('zh-TW', {
-                    year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric'
-                });
+            aiLoading.classList.remove('hidden');
+            aiResponse.classList.add('hidden');
 
-                const tagsHtml = reminder.tags && reminder.tags.length > 0 ?
-                    `<div class="mt-2 flex flex-wrap gap-2">${reminder.tags.map(tag => `<span class="bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full">${tag}</span>`).join('')}</div>` : '';
-
-                card.innerHTML = `
-                    <div class="bg-gray-50 rounded-xl p-4 shadow-sm border-l-4 ${urgencyClass} transition-all duration-300 hover:shadow-lg cursor-pointer">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-lg font-semibold text-gray-800 flex-grow ${completedClass}">${reminder.title}</h3>
-                            <div class="flex items-center gap-2">
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" data-id="${reminder.id}" ${reminder.isCompleted ? 'checked' : ''} class="w-5 h-5 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
-                                </label>
-                            </div>
-                        </div>
-                        <p class="text-sm text-gray-500 mb-2 ${completedClass}">時間: ${formattedDate}</p>
-                        <p class="text-xs text-gray-400 mb-2">建立者ID: ${reminder.ownerID}</p>
-                        ${tagsHtml}
-                        <div class="mt-2 text-gray-600 hidden reminder-content">
-                            <p>${reminder.content}</p>
-                            <p class="text-sm text-gray-500 mt-2">緊急程度: ${reminder.urgency}</p>
-                        </div>
-                        <div class="flex justify-end gap-2 mt-4 hidden reminder-actions">
-                            ${isOwner ? `
-                                <button class="edit-btn bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-blue-600 transition-colors" data-id="${reminder.id}">編輯</button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-
-                // Event listener to expand card content
-                card.querySelector('div').addEventListener('click', (e) => {
-                    const contentDiv = card.querySelector('.reminder-content');
-                    const actionsDiv = card.querySelector('.reminder-actions');
-                    if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL' && !e.target.closest('.edit-btn')) {
-                        contentDiv.classList.toggle('hidden');
-                        actionsDiv.classList.toggle('hidden');
+            const payload = {
+                contents: [{
+                    parts: [{ text: userPrompt }]
+                }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: "你是一個任務拆解助手。根據用戶的任務描述，將其拆解為最多10個小步驟。每個步驟需要包含標題、內容和預計完成時間（格式為 HH:MM）。" }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "title": { "type": "STRING" },
+                                "content": { "type": "STRING" },
+                                "time": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["title", "content", "time"]
+                        }
                     }
-                });
-
-                // Event listener for the "edit" button
-                card.querySelector('.edit-btn')?.addEventListener('click', () => {
-                    openEditModal(reminder);
-                });
-
-                // Event listener for the "complete" checkbox
-                card.querySelector('input[type="checkbox"]').addEventListener('change', async (e) => {
-                    const completed = e.target.checked;
-                    await updateDoc(doc(db, remindersCollectionPath, reminder.id), { isCompleted: completed });
-                });
-
-                remindersList.appendChild(card);
-            });
-        }
-
-        // --- Helper Functions ---
-        function openEditModal(reminder) {
-            currentEditingId = reminder.id;
-            modalTitle.textContent = '編輯提醒';
-            titleInput.value = reminder.title;
-            contentInput.value = reminder.content;
-            tagsInput.value = reminder.tags ? reminder.tags.join(', ') : '';
-            timeInput.value = new Date(reminder.timestamp).toISOString().slice(0, 16);
-            urgencyInput.value = reminder.urgency;
-            saveBtn.textContent = '更新';
-            deleteBtn.classList.remove('hidden');
-            reminderModal.classList.remove('hidden');
-        }
-
-        function resetForm() {
-            currentEditingId = null;
-            reminderForm.reset();
-            deleteBtn.classList.add('hidden');
-        }
-
-        function updateTagFilterOptions() {
-            const allTags = allReminders.flatMap(r => r.tags || []);
-            const uniqueTags = [...new Set(allTags)];
+                }
+            };
             
-            tagFilter.innerHTML = `<option value="all">所有標籤</option>`;
-            uniqueTags.forEach(tag => {
-                const option = document.createElement('option');
-                option.value = tag;
-                option.textContent = tag;
-                tagFilter.appendChild(option);
-            });
-        }
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${aiApiKey}`;
 
-        function filterReminders() {
-            const searchText = searchInput.value.toLowerCase();
-            const selectedUrgency = urgencyFilter.value;
-            const selectedTag = tagFilter.value;
-            const sortMethod = sortBy.value;
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API response was not ok: ${response.status} ${response.statusText}, Details: ${errorText}`);
+                }
 
-            const filtered = allReminders.filter(reminder => {
-                const matchesSearch = reminder.title.toLowerCase().includes(searchText) || reminder.content.toLowerCase().includes(searchText);
-                const matchesUrgency = selectedUrgency === 'all' || reminder.urgency === selectedUrgency;
-                const matchesTag = selectedTag === 'all' || (reminder.tags && reminder.tags.includes(selectedTag));
-                return matchesSearch && matchesUrgency && matchesTag;
-            });
+                const result = await response.json();
+                const jsonContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (jsonContent) {
+                    try {
+                        const tasks = JSON.parse(jsonContent);
+                        aiResponse.innerHTML = tasks.map(task => {
+                            return `<div class="p-3 bg-gray-50 rounded-lg mb-2">
+                                <h4 class="font-semibold">${task.title}</h4>
+                                <p class="text-sm text-gray-700">${task.content}</p>
+                                <p class="text-xs text-gray-500 mt-1">預計完成時間: ${task.time}</p>
+                            </div>`;
+                        }).join('');
+                        aiResponse.classList.remove('hidden');
+                    } catch (parseError) {
+                        console.error("解析AI回傳的JSON時出錯:", parseError);
+                        aiResponse.textContent = `無法解析AI回傳的資料，請稍後再試。`;
+                        aiResponse.classList.remove('hidden');
+                    }
+                } else {
+                    aiResponse.textContent = "無法為您生成任務，請嘗試更詳細的描述。";
+                    aiResponse.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("AI生成任務失敗:", error);
+                aiResponse.textContent = `AI生成任務失敗，請稍後再試。錯誤細節：${error.message}`;
+                aiResponse.classList.remove('hidden');
+            } finally {
+                aiLoading.classList.add('hidden');
+            }
+        });
 
-            if (sortMethod === 'time') {
-                filtered.sort((a, b) => a.timestamp - b.timestamp);
-            } else if (sortMethod === 'owner') {
-                filtered.sort((a, b) => a.ownerID.localeCompare(b.ownerID));
+        // Event listener for posting a new message
+        postMessageBtn.addEventListener('click', async () => {
+            const messageText = messageTextArea.value.trim();
+            if (!messageText) {
+                showNotification("留言內容不能為空。", 'bg-red-500');
+                return;
             }
 
-            return filtered;
+            try {
+                const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
+                await addDoc(messagesCollection, {
+                    text: messageText,
+                    timestamp: Date.now(),
+                    creatorId: userId, // Store the creator's ID
+                });
+                messageTextArea.value = '';
+                showNotification("留言已成功發佈！", 'bg-green-500');
+            } catch (e) {
+                console.error("Error posting message: ", e);
+                showNotification("發佈留言時出錯。", 'bg-red-500');
+            }
+        });
+
+        // Event delegation for message board buttons
+        messagesList.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('edit-message-btn')) {
+                const messageId = e.target.dataset.id;
+                const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
+                const messageDocRef = doc(messagesCollection, messageId);
+                const messageSnap = await getDoc(messageDocRef);
+                
+                if (messageSnap.exists()) {
+                    const messageData = messageSnap.data();
+                    editMessageIdInput.value = messageId;
+                    editMessageTextArea.value = messageData.text;
+                    editMessageModal.classList.remove('hidden');
+                } else {
+                    showNotification("找不到該留言。", 'bg-red-500');
+                }
+            } else if (e.target.classList.contains('delete-message-btn')) {
+                const messageId = e.target.dataset.id;
+                if (confirm('您確定要刪除這則留言嗎？')) {
+                    try {
+                        const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
+                        const messageDocRef = doc(messagesCollection, messageId);
+                        await deleteDoc(messageDocRef);
+                        showNotification("留言已刪除。", 'bg-green-500');
+                    } catch (e) {
+                        console.error("Error deleting message: ", e);
+                        showNotification("刪除留言時出錯。", 'bg-red-500');
+                    }
+                }
+            }
+        });
+        
+        // Handle edit message form submission
+        editMessageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageId = editMessageId.value;
+            const newText = editMessageTextArea.value.trim();
+            
+            if (newText) {
+                try {
+                    const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
+                    const messageDocRef = doc(messagesCollection, messageId);
+                    await updateDoc(messageDocRef, { text: newText });
+                    editMessageModal.classList.add('hidden');
+                    showNotification("留言已更新。", 'bg-green-500');
+                } catch (e) {
+                    console.error("Error updating message: ", e);
+                    showNotification("更新留言時出錯。", 'bg-red-500');
+                }
+            } else {
+                showNotification("留言內容不能為空。", 'bg-red-500');
+            }
+        });
+        
+        // Close edit message modal
+        closeEditMessageModalBtn.addEventListener('click', () => {
+            editMessageModal.classList.add('hidden');
+        });
+        
+        // Custom confirm function to avoid `window.confirm`
+        function confirm(message) {
+            return window.confirm(message);
         }
 
-        function exportData() {
-            const data = allReminders.map(r => {
-                const date = new Date(r.timestamp);
-                const formattedDate = date.toLocaleString('zh-TW');
-                const completionStatus = r.isCompleted ? '已完成' : '未完成';
-                const tagsString = r.tags ? r.tags.join(', ') : '';
-                return `標題: ${r.title}\n內容: ${r.content}\n標籤: ${tagsString}\n時間: ${formattedDate}\n緊急程度: ${r.urgency}\n狀態: ${completionStatus}\n建立者ID: ${r.ownerID}\n\n`;
-            }).join('');
+        // --- New Login/Register/Logout Logic ---
+        signInBtn.addEventListener('click', async () => {
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+            if (!email || !password) {
+                showNotification("請輸入電子郵件和密碼。", 'bg-red-500');
+                return;
+            }
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showNotification("登入成功！", 'bg-green-500');
+            } catch (error) {
+                let errorMessage = "登入失敗：請檢查您的電子郵件或密碼。";
+                if (error.code) {
+                    switch (error.code) {
+                        case 'auth/invalid-email':
+                            errorMessage = '電子郵件格式無效。';
+                            break;
+                        case 'auth/user-not-found':
+                        case 'auth/wrong-password':
+                            errorMessage = '電子郵件或密碼不正確。';
+                            break;
+                        case 'auth/operation-not-allowed':
+                            errorMessage = '登入方法未啟用，請聯繫管理員。';
+                            break;
+                        default:
+                            errorMessage = '登入失敗，請稍後再試。';
+                            break;
+                    }
+                }
+                console.error("登入失敗:", error);
+                showNotification(errorMessage, 'bg-red-500');
+            }
+        });
 
-            const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `提醒記錄-${new Date().toISOString().slice(0, 10)}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        registerBtn.addEventListener('click', async () => {
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+            if (!email || !password) {
+                showNotification("請輸入電子郵件和密碼。", 'bg-red-500');
+                return;
+            }
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                showNotification("註冊成功，正在為您登入...", 'bg-green-500');
+            } catch (error) {
+                 let errorMessage = "註冊失敗：請檢查電子郵件格式或密碼強度。";
+                if (error.code) {
+                    switch (error.code) {
+                        case 'auth/invalid-email':
+                            errorMessage = '電子郵件格式無效。';
+                            break;
+                        case 'auth/email-already-in-use':
+                            errorMessage = '此電子郵件已被註冊。';
+                            break;
+                        case 'auth/weak-password':
+                            errorMessage = '密碼強度不足，請使用至少6個字元。';
+                            break;
+                        case 'auth/operation-not-allowed':
+                            errorMessage = '註冊功能未啟用，請聯繫管理員。';
+                            break;
+                        default:
+                            errorMessage = '註冊失敗，請稍後再試。';
+                            break;
+                    }
+                }
+                console.error("註冊失敗:", error);
+                showNotification(errorMessage, 'bg-red-500');
+            }
+        });
+        
+        guestSignInBtn.addEventListener('click', async () => {
+            try {
+                await signInAnonymously(auth);
+                showNotification("訪客登入成功！", 'bg-green-500');
+            } catch (error) {
+                console.error("訪客登入失敗:", error);
+                showNotification("訪客登入失敗，請稍後再試。", 'bg-red-500');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                showNotification("您已登出。", 'bg-green-500');
+            } catch (error) {
+                console.error("登出失敗:", error);
+                showNotification("登出失敗，請稍後再試。", 'bg-red-500');
+            }
+        });
+        
     </script>
 </body>
 </html>
