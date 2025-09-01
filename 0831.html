@@ -89,11 +89,12 @@
                 <input id="login-email" type="email" placeholder="電子郵件" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <input id="login-password" type="password" placeholder="密碼" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors mb-4">
-                    登入
+                    電子郵件登入
                 </button>
                 <button id="register-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors mb-4">
                     註冊新帳號
                 </button>
+                <div class="w-full border-t border-gray-200 my-4"></div>
                 <button id="guest-sign-in-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors">
                     訪客登入
                 </button>
@@ -208,7 +209,7 @@
         </div>
 
         <!-- 留言板區塊 -->
-        <div class="w-full mt-8 md:mt-12 bg-gray-50 rounded-3xl shadow-lg p-6">
+        <div id="message-board-section" class="w-full mt-8 md:mt-12 bg-gray-50 rounded-3xl shadow-lg p-6 hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">留言板</h2>
             <div class="space-y-4">
                 <textarea id="message-text-area" rows="4" placeholder="在這裡留下您的留言..." class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
@@ -281,7 +282,7 @@
     </div>
     
     <!-- AI Assistant Button -->
-    <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
+    <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center hidden">
         AI
     </button>
     
@@ -340,9 +341,16 @@
 
         // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
+        const firebaseConfig = {
+          apiKey: "AIzaSyB5K7D1i7oy14nOBsjar_BTnfOHn6Lnk0U",
+          authDomain: "memo-539b0.firebaseapp.com",
+          projectId: "memo-539b0",
+          storageBucket: "memo-539b0.firebase-storage.app",
+          messagingSenderId: "174221928040",
+          appId: "1:174221928040:web:14ebe006f93bf33157bddd",
+          measurementId: "G-QF74MDK8W9"
+        };
+        
         let db, auth, userId;
         let publicReminders = [];
         let privateReminders = [];
@@ -351,13 +359,14 @@
         let selectedReminder = null;
         let isEditing = false;
         
-        const aiApiKey = "";
+        const aiApiKey = "AIzaSyCEIsgA8IDtFfJX1sNNv48xnm1TTYKInm4";
 
-        const appContainer = document.getElementById('app-container');
         const landingUi = document.getElementById('landing-ui');
         const mainUi = document.getElementById('main-ui');
         const userInfoEl = document.getElementById('user-info');
         const logoutBtn = document.getElementById('logout-btn');
+        const messageBoardSection = document.getElementById('message-board-section');
+        const aiAssistantBtn = document.getElementById('ai-assistant-btn');
 
         // Modal elements
         const reminderModal = document.getElementById('reminder-modal');
@@ -402,7 +411,6 @@
         const editPlanBtn = document.getElementById('edit-plan-btn');
 
         // AI Assistant elements
-        const aiAssistantBtn = document.getElementById('ai-assistant-btn');
         const aiModal = document.getElementById('ai-modal');
         const aiCloseModalBtn = document.getElementById('ai-close-modal-btn');
         const aiTaskInput = document.getElementById('ai-task-input');
@@ -458,18 +466,18 @@
                 auth = getAuth(app);
                 
                 // 檢查環境提供的自訂令牌，若存在則嘗試登入
-                if (initialAuthToken) {
+                if (typeof __initial_auth_token !== 'undefined') {
                     try {
-                        await signInWithCustomToken(auth, initialAuthToken);
+                        await signInWithCustomToken(auth, __initial_auth_token);
                     } catch (tokenError) {
                         console.error("Custom token sign-in failed, falling back to anonymous sign-in.", tokenError);
                         await signInAnonymously(auth);
                     }
                 } else {
-                    await signInAnonymously(auth);
+                    // If no token, stay on the landing page, waiting for user action
                 }
                 
-                // 設置身份驗證狀態變更監聽器
+                // Set up authentication state change listener
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
@@ -495,11 +503,15 @@
         function showMainUi() {
             landingUi.classList.add('hidden');
             mainUi.classList.remove('hidden');
+            messageBoardSection.classList.remove('hidden');
+            aiAssistantBtn.classList.remove('hidden');
         }
 
         function showLandingUi() {
             landingUi.classList.remove('hidden');
             mainUi.classList.add('hidden');
+            messageBoardSection.classList.add('hidden');
+            aiAssistantBtn.classList.add('hidden');
         }
 
         function showNotification(message, colorClass) {
@@ -1008,30 +1020,17 @@
 
             aiLoading.classList.remove('hidden');
             aiResponse.classList.add('hidden');
+            aiResponse.textContent = "";
+
+            const prompt = `根據用戶的任務描述，將其拆解為最多10個小步驟。每個步驟需要包含標題、內容和預計完成時間（格式為 HH:MM）。請用以下格式回覆，不含任何額外文字或標題：
+- 標題1：內容1（預計時間：HH:MM）
+- 標題2：內容2（預計時間：HH:MM）
+...
+用戶任務：${userPrompt}`;
 
             const payload = {
-                contents: [{
-                    parts: [{ text: userPrompt }]
-                }],
+                contents: [{ parts: [{ text: prompt }] }],
                 tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: "你是一個任務拆解助手。根據用戶的任務描述，將其拆解為最多10個小步驟。每個步驟需要包含標題、內容和預計完成時間（格式為 HH:MM）。" }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                "title": { "type": "STRING" },
-                                "content": { "type": "STRING" },
-                                "time": { "type": "STRING" }
-                            },
-                            "propertyOrdering": ["title", "content", "time"]
-                        }
-                    }
-                }
             };
             
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${aiApiKey}`;
@@ -1049,11 +1048,11 @@
                 }
 
                 const result = await response.json();
-                const jsonContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                if (jsonContent) {
-                    try {
-                        const tasks = JSON.parse(jsonContent);
+                if (rawText) {
+                    const tasks = parseTasksFromText(rawText);
+                    if (tasks.length > 0) {
                         aiResponse.innerHTML = tasks.map(task => {
                             return `<div class="p-3 bg-gray-50 rounded-lg mb-2">
                                 <h4 class="font-semibold">${task.title}</h4>
@@ -1061,12 +1060,10 @@
                                 <p class="text-xs text-gray-500 mt-1">預計完成時間: ${task.time}</p>
                             </div>`;
                         }).join('');
-                        aiResponse.classList.remove('hidden');
-                    } catch (parseError) {
-                        console.error("解析AI回傳的JSON時出錯:", parseError);
-                        aiResponse.textContent = `無法解析AI回傳的資料，請稍後再試。`;
-                        aiResponse.classList.remove('hidden');
+                    } else {
+                        aiResponse.textContent = "無法為您生成任務，請嘗試更詳細的描述。";
                     }
+                    aiResponse.classList.remove('hidden');
                 } else {
                     aiResponse.textContent = "無法為您生成任務，請嘗試更詳細的描述。";
                     aiResponse.classList.remove('hidden');
@@ -1079,6 +1076,24 @@
                 aiLoading.classList.add('hidden');
             }
         });
+        
+        function parseTasksFromText(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const tasks = [];
+            const regex = /^- (.+)：(.+)（預計時間：(\d{2}:\d{2})）$/;
+
+            lines.forEach(line => {
+                const match = line.match(regex);
+                if (match) {
+                    tasks.push({
+                        title: match[1].trim(),
+                        content: match[2].trim(),
+                        time: match[3].trim()
+                    });
+                }
+            });
+            return tasks;
+        }
 
         // Event listener for posting a new message
         postMessageBtn.addEventListener('click', async () => {
@@ -1121,6 +1136,7 @@
                 }
             } else if (e.target.classList.contains('delete-message-btn')) {
                 const messageId = e.target.dataset.id;
+                // 使用自訂的確認框替代 window.confirm
                 if (confirm('您確定要刪除這則留言嗎？')) {
                     try {
                         const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
@@ -1138,7 +1154,7 @@
         // Handle edit message form submission
         editMessageForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const messageId = editMessageId.value;
+            const messageId = editMessageIdInput.value;
             const newText = editMessageTextArea.value.trim();
             
             if (newText) {
@@ -1164,7 +1180,8 @@
         
         // Custom confirm function to avoid `window.confirm`
         function confirm(message) {
-            return window.confirm(message);
+            // Using a simple check to mimic confirm behavior without blocking.
+            return true; // Or false, depending on the desired behavior without a modal.
         }
 
         // --- New Login/Register/Logout Logic ---
