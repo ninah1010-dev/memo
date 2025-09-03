@@ -27,7 +27,7 @@
             cursor: pointer;
         }
         .current-day-highlight {
-            border: 2px solid rgba(239, 68, 68, 0.5);
+            border: 2px solid rgba(99, 102, 241, 0.5);
             border-radius: 8px;
         }
     </style>
@@ -47,7 +47,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">AI 任務助手</h2>
+            <h2 class="text-2xl font-bold text-indigo-600 mb-4">AI 任務助手</h2>
             <div class="space-y-4">
                 <div>
                     <label for="ai-task-input" class="block text-gray-700 font-semibold mb-1">請描述您想拆分的任務</label>
@@ -60,7 +60,7 @@
                     </svg>
                     <span class="mt-2 text-gray-600">正在為您拆分任務...</span>
                 </div>
-                <div id="ai-response" class="p-3 bg-gray-100 rounded-xl overflow-y-auto max-h-64 hidden"></div>
+                <div id="ai-response" class="p-3 bg-sky-100 rounded-xl overflow-y-auto max-h-64 hidden space-y-3"></div>
                 <button id="ai-generate-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full">
                     生成計劃
                 </button>
@@ -103,9 +103,9 @@
 
         <!-- Main App UI -->
         <div id="main-ui" class="hidden w-full flex flex-col md:flex-row gap-8">
-             <!-- User Info and Logout -->
-            <div class="fixed top-4 right-4 flex items-center space-x-2">
-                <span id="user-info" class="text-sm text-gray-600"></span>
+            <!-- User Info and Logout -->
+            <div class="fixed top-4 right-4 flex flex-col items-end space-y-1">
+                <span id="user-info" class="text-sm text-gray-600 text-right"></span>
                 <button id="logout-btn" class="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors">
                     登出
                 </button>
@@ -334,31 +334,33 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Set Firebase log level to debug for better console output
+        // 設定 Firebase 偵錯等級
         setLogLevel('Debug');
 
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Your web app's Firebase configuration
         const firebaseConfig = {
           apiKey: "AIzaSyB5K7D1i7oy14nOBsjar_BTnfOHn6Lnk0U",
           authDomain: "memo-539b0.firebaseapp.com",
           projectId: "memo-539b0",
-          storageBucket: "memo-539b0.firebase-storage.app",
+          storageBucket: "memo-539b0.firebasestorage.app",
           messagingSenderId: "174221928040",
           appId: "1:174221928040:web:14ebe006f93bf33157bddd",
           measurementId: "G-QF74MDK8W9"
         };
         
-        let db, auth, userId;
+        let db, auth, analytics, userId;
         let publicReminders = [];
         let privateReminders = [];
+        let publicMessages = [];
         let currentMonth = new Date();
         let selectedDate = new Date();
         let selectedReminder = null;
         let isEditing = false;
         
+        // 使用者提供的 AI API 金鑰
         const aiApiKey = "AIzaSyCEIsgA8IDtFfJX1sNNv48xnm1TTYKInm4";
 
         const landingUi = document.getElementById('landing-ui');
@@ -457,34 +459,26 @@
         };
 
         const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
+        
+        const aiResponseColors = ['bg-white'];
 
-        // --- Firebase Initialization and Auth ---
+        // --- Firebase 初始化與認證 ---
         window.onload = async function() {
             try {
+                // Initialize Firebase
                 const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
+                analytics = getAnalytics(app);
                 auth = getAuth(app);
+                db = getFirestore(app);
                 
-                // 檢查環境提供的自訂令牌，若存在則嘗試登入
-                if (typeof __initial_auth_token !== 'undefined') {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } catch (tokenError) {
-                        console.error("Custom token sign-in failed, falling back to anonymous sign-in.", tokenError);
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    // If no token, stay on the landing page, waiting for user action
-                }
-                
-                // Set up authentication state change listener
+                // 設定認證狀態變更監聽器
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
                         if (user.email) {
                             userInfoEl.textContent = `已登入: ${user.email}`;
                         } else {
-                            userInfoEl.textContent = `訪客登入: ${userId.substring(0, 8)}...`;
+                            userInfoEl.textContent = `訪客登入: ${userId}`;
                         }
                         setupFirestoreListeners();
                         renderCalendar();
@@ -495,8 +489,8 @@
                     }
                 });
             } catch (error) {
-                console.error("Firebase初始化失敗:", error);
-                showNotification("Firebase初始化失敗，請檢查配置。", 'bg-red-500');
+                console.error("Firebase 初始化失敗:", error);
+                showNotification("Firebase 初始化失敗，請檢查配置。", 'bg-red-500');
             }
         }
         
@@ -523,313 +517,377 @@
             }, 3000);
         }
 
+        // 根據隱私設定取得 Firestore collection 的參考
         function getCollectionRef(isPrivate) {
             if (!userId) {
-                console.error("userID is not available. Cannot get collection reference.");
+                console.error("userID 未找到。無法取得 collection 參考。");
                 return null;
             }
-            const collectionPath = isPrivate
-                ? `artifacts/${appId}/users/${userId}/reminders`
-                : `artifacts/${appId}/public/data/reminders`;
-            return collection(db, collectionPath);
+            if (isPrivate) {
+                // 私人資料路徑
+                return collection(db, `artifacts/${firebaseConfig.appId}/users/${userId}/reminders`);
+            } else {
+                // 公開資料路徑
+                return collection(db, `artifacts/${firebaseConfig.appId}/public/data/reminders`);
+            }
         }
         
-        function getReminderDocRef(reminder) {
-             const collectionPath = reminder.isPrivate
-                ? `artifacts/${appId}/users/${userId}/reminders`
-                : `artifacts/${appId}/public/data/reminders`;
-            return doc(db, `${collectionPath}/${reminder.id}`);
+        // 留言板的 collection 參考，所有留言都是公開的
+        function getMessageCollectionRef() {
+            return collection(db, `artifacts/${firebaseConfig.appId}/public/data/messages`);
         }
-        
+
+        // 設定 Firestore 即時監聽器
         function setupFirestoreListeners() {
-            if (!userId) {
-                console.warn("User ID is not set, skipping Firestore listeners setup.");
-                return;
-            }
-
-            console.log("Setting up Firestore listeners for userId:", userId);
+            // 監聽公開提醒事項
+            const publicRemindersRef = getCollectionRef(false);
+            onSnapshot(publicRemindersRef, (snapshot) => {
+                publicReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCalendar();
+                renderDayPlans(selectedDate);
+            });
             
-            // Public reminders listener
-            const publicCollection = getCollectionRef(false);
-            if (publicCollection) {
-                onSnapshot(publicCollection, (snapshot) => {
-                    publicReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderCalendar();
-                    renderDayPlans(selectedDate);
-                }, (error) => {
-                    console.error("Error listening to public reminders:", error);
-                    showNotification("無法載入公開提醒事項。", 'bg-red-500');
-                });
-            }
-
-            // Private reminders listener
-            const privateCollection = getCollectionRef(true);
-            if (privateCollection) {
-                onSnapshot(privateCollection, (snapshot) => {
-                    privateReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderCalendar();
-                    renderDayPlans(selectedDate);
-                }, (error) => {
-                    console.error("Error listening to private reminders:", error);
-                    showNotification("無法載入私人提醒事項。", 'bg-red-500');
-                });
-            }
-
-            // Message Board listener
-            const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
-            onSnapshot(messagesCollection, (snapshot) => {
-                messagesList.innerHTML = '';
-                const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // Sort messages by timestamp descending
-                messages.sort((a, b) => b.timestamp - a.timestamp);
-                messages.forEach(message => {
-                    const messageEl = document.createElement('div');
-                    messageEl.className = 'p-3 bg-white rounded-xl shadow-sm text-gray-800';
-                    
-                    const isMyMessage = message.creatorId === userId;
-                    const actionButtons = isMyMessage ? `
-                        <div class="flex gap-2">
-                            <button class="edit-message-btn text-blue-500 hover:text-blue-700 transition-colors" data-id="${message.id}">編輯</button>
-                            <button class="delete-message-btn text-red-500 hover:text-red-700 transition-colors" data-id="${message.id}">刪除</button>
-                        </div>
-                    ` : '';
-                    
-                    messageEl.innerHTML = `
-                        <div>
-                            <p>${message.text}</p>
-                            <p class="text-xs text-gray-400 mt-1">
-                                <span class="font-semibold">ID: ${message.creatorId}</span>
-                                <br>發佈於: ${new Date(message.timestamp).toLocaleString()}
-                            </p>
-                            ${actionButtons}
-                        </div>
-                    `;
-                    messagesList.appendChild(messageEl);
-                });
-            }, (error) => {
-                console.error("Error listening to messages:", error);
-                showNotification("無法載入留言板訊息。", 'bg-red-500');
+            // 監聽私人提醒事項
+            const privateRemindersRef = getCollectionRef(true);
+            onSnapshot(privateRemindersRef, (snapshot) => {
+                privateReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCalendar();
+                renderDayPlans(selectedDate);
+            });
+            
+            // 監聽留言板
+            const messagesRef = getMessageCollectionRef();
+            onSnapshot(query(messagesRef), (snapshot) => {
+                publicMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderMessages();
             });
         }
-
-        // --- Calendar & Planner Rendering ---
+        
+        // --- UI 渲染功能 ---
+        
         function renderCalendar() {
-            currentMonthYearEl.textContent = `${currentMonth.getFullYear()} 年 ${monthNames[currentMonth.getMonth()]}`;
             calendarGrid.innerHTML = '';
+            currentMonthYearEl.textContent = `${currentMonth.getFullYear()}年 ${monthNames[currentMonth.getMonth()]}`;
             
-            const startDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-            const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-            const today = new Date();
-
-            // Render empty cells for leading days
-            for (let i = 0; i < startDay; i++) {
-                calendarGrid.innerHTML += `<div></div>`;
+            const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            const startWeekday = firstDayOfMonth.getDay();
+            
+            const totalReminders = [...publicReminders, ...privateReminders];
+            
+            // 渲染前一個月的灰色日期
+            const prevMonthLastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
+            for (let i = startWeekday - 1; i >= 0; i--) {
+                const dayEl = document.createElement('div');
+                dayEl.textContent = prevMonthLastDay - i;
+                dayEl.classList.add('p-2', 'rounded-xl', 'text-gray-400', 'text-sm');
+                calendarGrid.appendChild(dayEl);
             }
 
-            // Render day cells
-            for (let i = 1; i < daysInMonth + 1; i++) {
-                const day = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
-                const isToday = day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() === today.getDate();
+            // 渲染當月日期
+            for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+                const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
+                const dayEl = document.createElement('div');
+                const hasReminder = totalReminders.some(r => {
+                    const reminderDate = r.date.toDate();
+                    return reminderDate.getFullYear() === dayDate.getFullYear() &&
+                           reminderDate.getMonth() === dayDate.getMonth() &&
+                           reminderDate.getDate() === dayDate.getDate();
+                });
                 
-                let dayClasses = `p-2 rounded-xl text-center calendar-day-cell relative`;
-                if (isToday) {
-                    dayClasses += ` current-day-highlight`;
+                dayEl.classList.add('p-2', 'rounded-xl', 'text-sm', 'relative', 'calendar-day-cell');
+                dayEl.textContent = i;
+                dayEl.dataset.date = dayDate.toISOString();
+                
+                if (hasReminder) {
+                    dayEl.classList.add('bg-blue-50', 'text-indigo-800', 'font-semibold');
                 }
                 
-                let remindersForDay = [...publicReminders, ...privateReminders].filter(r => {
-                    const reminderDate = r.time instanceof Timestamp ? r.time.toDate() : new Date(r.time);
-                    return reminderDate.getFullYear() === day.getFullYear() && reminderDate.getMonth() === day.getMonth() && reminderDate.getDate() === day.getDate();
-                });
-
-                const urgencySortOrder = { 'urgent_3': 1, 'urgent_2': 2, 'urgent_1': 3, 'routine_2': 4, 'routine_1': 5 };
-                remindersForDay.sort((a, b) => urgencySortOrder[a.urgency] - urgencySortOrder[b.urgency]);
+                if (dayDate.toDateString() === selectedDate.toDateString()) {
+                    dayEl.classList.add('bg-indigo-300', 'text-indigo-900', 'font-bold', 'shadow-md');
+                }
                 
-                const dotClasses = {
-                    'urgent_3': 'bg-red-600', 'urgent_2': 'bg-orange-500', 'urgent_1': 'bg-yellow-500',
-                    'routine_2': 'bg-sky-400', 'routine_1': 'bg-lime-500'
-                };
-
-                let dotHtml = '';
-                remindersForDay.forEach((r, index) => {
-                    if (index < 3) { // Show up to 3 dots
-                        dotHtml += `<span class="h-1 w-1 rounded-full ${dotClasses[r.urgency]} inline-block mx-0.5"></span>`;
-                    }
-                });
+                const today = new Date();
+                if (dayDate.toDateString() === today.toDateString()) {
+                    dayEl.classList.add('current-day-highlight');
+                }
                 
-                calendarGrid.innerHTML += `
-                    <div class="${dayClasses}" data-date="${day.toISOString()}">
-                        <span>${i}</span>
-                        <div class="absolute bottom-1 left-0 right-0 flex justify-center space-x-0.5">
-                            ${dotHtml}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Render all month links
-            monthLinksContainer.innerHTML = '';
-            monthNames.forEach((month, index) => {
-                const link = document.createElement('button');
-                link.textContent = month;
-                link.className = 'px-3 py-1 rounded-full text-sm font-medium transition-colors hover:bg-gray-200';
-                link.addEventListener('click', () => {
-                    currentMonth.setMonth(index);
+                dayEl.addEventListener('click', () => {
+                    selectedDate = dayDate;
                     renderCalendar();
                     renderDayPlans(selectedDate);
                 });
-                monthLinksContainer.appendChild(link);
-            });
-        }
-
-        function renderDayPlans(date) {
-            plannerDateEl.textContent = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
-            remindersListEl.innerHTML = '';
-            
-            const allReminders = [...publicReminders, ...privateReminders];
-            
-            let filteredReminders = allReminders.filter(r => {
-                const reminderDate = r.time instanceof Timestamp ? r.time.toDate() : new Date(r.time);
-                return reminderDate.getFullYear() === date.getFullYear() && reminderDate.getMonth() === date.getMonth() && reminderDate.getDate() === date.getDate();
-            });
-
-            // Apply search filter
-            const searchTerm = searchInput.value.toLowerCase();
-            if (searchTerm) {
-                filteredReminders = filteredReminders.filter(r => r.title.toLowerCase().includes(searchTerm) || r.content.toLowerCase().includes(searchTerm) || (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm))));
+                
+                calendarGrid.appendChild(dayEl);
             }
-
-            // Apply urgency filter
-            const urgencyVal = urgencyFilter.value;
-            if (urgencyVal !== 'all') {
-                filteredReminders = filteredReminders.filter(r => r.urgency === urgencyVal);
-            }
-
-            // Apply tag filter
-            const tagVal = tagFilter.value;
-            if (tagVal !== 'all') {
-                filteredReminders = filteredReminders.filter(r => r.tags && r.tags.includes(tagVal));
-            }
-
-            // Sort by time
-            filteredReminders.sort((a, b) => (a.time instanceof Timestamp ? a.time.toDate() : new Date(a.time)) - (b.time instanceof Timestamp ? b.time.toDate() : new Date(b.time)));
-
-            if (filteredReminders.length === 0) {
-                noRemindersMessage.classList.remove('hidden');
-            } else {
-                noRemindersMessage.classList.add('hidden');
-                filteredReminders.forEach(reminder => {
-                    const reminderEl = document.createElement('div');
-                    const reminderTime = reminder.time instanceof Timestamp ? reminder.time.toDate() : new Date(reminder.time);
-                    const timeString = reminderTime.toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const urgencyClass = URGENCY_LEVELS[reminder.urgency]?.class || '';
-                    const isCompleted = reminder.checklist && reminder.checklist.every(item => item.completed);
-                    const completedClass = isCompleted ? 'opacity-50' : '';
-                    
-                    const isEditable = reminder.creatorId === userId || !reminder.isPrivate;
-                    
-                    const tagsHtml = reminder.tags && reminder.tags.length > 0
-                        ? reminder.tags.map(tag => `<span class="bg-gray-200 text-gray-700 rounded-full px-2 py-0.5 text-xs">${tag}</span>`).join(' ')
-                        : '';
-
-                    reminderEl.className = `p-4 bg-gray-50 rounded-xl shadow-sm border-l-4 ${urgencyClass} transition-shadow hover:shadow-lg ${completedClass}`;
-                    reminderEl.innerHTML = `
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="font-semibold text-lg text-gray-800">${reminder.title}</h3>
-                            <span class="text-sm font-medium text-gray-500">${timeString}</span>
-                        </div>
-                        <p class="text-sm text-gray-600 mb-2">${reminder.content.substring(0, 50)}...</p>
-                        <div class="flex items-center justify-between text-xs text-gray-400">
-                            <span>優先級: ${URGENCY_LEVELS[reminder.urgency]?.name || '未知'}</span>
-                            <span class="flex items-center">${reminder.isPrivate ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H10a2 2 0 01-2-2v-4a2 2 0 012-2z" /></svg>私人` : '公開'}</span>
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1">
-                            ${tagsHtml}
-                        </div>
-                    `;
-                    reminderEl.addEventListener('click', () => {
-                        selectedReminder = reminder;
-                        showDetailedView(reminder);
-                    });
-                    remindersListEl.appendChild(reminderEl);
-                });
-            }
-            
-            updateTagFilterOptions();
         }
         
-        function updateTagFilterOptions() {
-            const allTags = new Set();
+        function renderDayPlans(date) {
+            plannerDateEl.textContent = `${date.getFullYear()}年 ${monthNames[date.getMonth()]} ${date.getDate()}日`;
+            remindersListEl.innerHTML = '';
+            
+            // 合併公眾和私人提醒事項
             const allReminders = [...publicReminders, ...privateReminders];
+            
+            const filteredReminders = allReminders
+                .filter(r => {
+                    const reminderDate = r.date.toDate();
+                    return reminderDate.getFullYear() === date.getFullYear() &&
+                           reminderDate.getMonth() === date.getMonth() &&
+                           reminderDate.getDate() === date.getDate();
+                })
+                .sort((a, b) => {
+                    const timeA = new Date(`1970/01/01 ${a.time}`);
+                    const timeB = new Date(`1970/01/01 ${b.time}`);
+                    return timeA - timeB;
+                });
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const urgencyFilterValue = urgencyFilter.value;
+            const tagFilterValue = tagFilter.value;
+            
+            const tags = new Set();
             allReminders.forEach(r => {
                 if (r.tags) {
-                    r.tags.forEach(tag => allTags.add(tag));
+                    r.tags.forEach(tag => tags.add(tag));
                 }
             });
             tagFilter.innerHTML = '<option value="all">所有標籤</option>';
-            Array.from(allTags).sort().forEach(tag => {
+            tags.forEach(tag => {
                 const option = document.createElement('option');
                 option.value = tag;
                 option.textContent = tag;
                 tagFilter.appendChild(option);
             });
+            tagFilter.value = tagFilterValue;
+
+            const finalReminders = filteredReminders.filter(r => {
+                const matchesSearch = r.title.toLowerCase().includes(searchTerm) || 
+                                      r.content.toLowerCase().includes(searchTerm) ||
+                                      (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+                const matchesUrgency = urgencyFilterValue === 'all' || r.urgency === urgencyFilterValue;
+                const matchesTag = tagFilterValue === 'all' || (r.tags && r.tags.includes(tagFilterValue));
+                return matchesSearch && matchesUrgency && matchesTag;
+            });
+            
+            if (finalReminders.length === 0) {
+                noRemindersMessage.classList.remove('hidden');
+            } else {
+                noRemindersMessage.classList.add('hidden');
+                finalReminders.forEach(reminder => {
+                    const reminderEl = document.createElement('div');
+                    const urgencyClass = URGENCY_LEVELS[reminder.urgency]?.class || '';
+                    reminderEl.classList.add(
+                        'flex', 'flex-col', 'p-4', 'bg-white', 'rounded-xl', 'shadow-sm', 
+                        'border-l-4', urgencyClass, 'cursor-pointer', 'transition-all', 'hover:shadow-md'
+                    );
+                    reminderEl.dataset.id = reminder.id;
+                    reminderEl.dataset.private = reminder.isPrivate;
+                    
+                    const titleTime = document.createElement('div');
+                    titleTime.classList.add('flex', 'justify-between', 'items-center', 'mb-2');
+                    titleTime.innerHTML = `
+                        <span class="text-lg font-semibold text-gray-800">${reminder.title}</span>
+                        <span class="text-sm text-gray-500">${reminder.time}</span>
+                    `;
+                    reminderEl.appendChild(titleTime);
+                    
+                    const content = document.createElement('p');
+                    content.classList.add('text-gray-600', 'mb-2', 'line-clamp-2');
+                    content.textContent = reminder.content;
+                    reminderEl.appendChild(content);
+                    
+                    const metaInfo = document.createElement('div');
+                    metaInfo.classList.add('flex', 'flex-wrap', 'gap-2', 'text-xs', 'text-gray-500');
+                    if (reminder.tags && reminder.tags.length > 0) {
+                        reminder.tags.forEach(tag => {
+                            const tagEl = document.createElement('span');
+                            tagEl.classList.add('bg-gray-200', 'rounded-full', 'px-2', 'py-1');
+                            tagEl.textContent = tag;
+                            metaInfo.appendChild(tagEl);
+                        });
+                    }
+                    metaInfo.innerHTML += `<span class="italic">建立者: ${reminder.createdBy.substring(0, 8)}...</span>`;
+                    reminderEl.appendChild(metaInfo);
+                    
+                    reminderEl.addEventListener('click', () => {
+                        selectedReminder = reminder;
+                        renderDetailedView(reminder);
+                    });
+                    
+                    remindersListEl.appendChild(reminderEl);
+                });
+            }
         }
         
-        function showDetailedView(reminder) {
+        function renderDetailedView(reminder) {
             dayPlansList.classList.add('hidden');
             detailedPlanView.classList.remove('hidden');
-
+            
             detailedTitleEl.textContent = reminder.title;
-            const reminderDate = reminder.time instanceof Timestamp ? reminder.time.toDate() : new Date(reminder.time);
-            detailedDateEl.textContent = `${reminderDate.getFullYear()} 年 ${reminderDate.getMonth() + 1} 月 ${reminderDate.getDate()} 日 ${reminderDate.toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+            const reminderDate = reminder.date.toDate();
+            detailedDateEl.textContent = `${reminderDate.getFullYear()}年 ${monthNames[reminderDate.getMonth()]} ${reminderDate.getDate()}日 ${reminder.time}`;
             detailedContentEl.textContent = reminder.content;
             
-            // Show/hide edit and delete buttons based on ownership and privacy
-            const isEditable = reminder.creatorId === userId || !reminder.isPrivate;
-            if (isEditable) {
-                editPlanBtn.classList.remove('hidden');
-            } else {
-                editPlanBtn.classList.add('hidden');
-            }
-
-            renderChecklist(reminder);
-        }
-
-        function renderChecklist(reminder) {
             checklistEl.innerHTML = '';
-            addChecklistItemBtn.classList.toggle('hidden', reminder.creatorId !== userId);
-
-            if (!reminder.checklist) {
-                reminder.checklist = [];
-            }
             
-            reminder.checklist.forEach((item, index) => {
-                const li = document.createElement('li');
-                li.className = 'flex items-center justify-between p-2 bg-gray-100 rounded-xl';
-                li.innerHTML = `
-                    <div class="flex items-center">
-                        <input type="checkbox" data-index="${index}" class="h-4 w-4 text-indigo-600 rounded mr-2" ${item.completed ? 'checked' : ''}>
-                        <span class="${item.completed ? 'completed-item' : ''} text-gray-700">${item.text}</span>
-                    </div>
-                `;
-                if (reminder.creatorId === userId) {
-                     li.innerHTML += `
-                        <button class="remove-checklist-item text-red-400 hover:text-red-600 transition-colors" data-index="${index}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                        </button>
-                    `;
-                }
-                checklistEl.appendChild(li);
-            });
+            if (reminder.checklist) {
+                reminder.checklist.forEach(item => {
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'items-center', 'space-x-2', 'p-2', 'bg-gray-100', 'rounded-xl', 'transition-colors', 'hover:bg-gray-200');
+                    if (item.completed) {
+                        li.classList.add('completed-item');
+                    }
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = item.completed;
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-indigo-600', 'rounded', 'border-gray-300');
+                    checkbox.addEventListener('change', async () => {
+                        item.completed = checkbox.checked;
+                        try {
+                            const reminderRef = doc(db, getCollectionRef(reminder.isPrivate).path, reminder.id);
+                            await updateDoc(reminderRef, { checklist: reminder.checklist });
+                        } catch (e) {
+                            console.error("更新清單項目失敗: ", e);
+                            showNotification("更新清單項目失敗。", 'bg-red-500');
+                        }
+                    });
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = item.text;
+                    textSpan.classList.add('text-gray-800');
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-1.41-1.41-5.59 5.59-5.59-5.59L5 7l5.59 5.59L5 18l1.41 1.41 5.59-5.59 5.59 5.59L19 18l-5.59-5.59L19 7z"/></svg>';
+                    deleteBtn.classList.add('ml-auto', 'transition-colors', 'hidden'); // 隱藏刪除按鈕
+                    deleteBtn.addEventListener('click', async () => {
+                        const newChecklist = reminder.checklist.filter(i => i !== item);
+                        try {
+                            const reminderRef = doc(db, getCollectionRef(reminder.isPrivate).path, reminder.id);
+                            await updateDoc(reminderRef, { checklist: newChecklist });
+                        } catch (e) {
+                            console.error("刪除清單項目失敗: ", e);
+                            showNotification("刪除清單項目失敗。", 'bg-red-500');
+                        }
+                    });
+                    
+                    li.appendChild(checkbox);
+                    li.appendChild(textSpan);
+                    li.appendChild(deleteBtn);
+                    checklistEl.appendChild(li);
+                });
+            }
         }
         
-        // --- Event Listeners ---
+        // 渲染留言板
+        function renderMessages() {
+            messagesList.innerHTML = '';
+            
+            // 排序留言，最新的在最上面
+            const sortedMessages = [...publicMessages].sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate());
+
+            sortedMessages.forEach(message => {
+                const messageEl = document.createElement('div');
+                messageEl.classList.add('p-4', 'rounded-xl', 'bg-white', 'shadow-sm', 'relative');
+                messageEl.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-700">使用者ID: ${message.createdBy}</span>
+                        <span class="text-xs text-gray-400">${message.timestamp.toDate().toLocaleString()}</span>
+                    </div>
+                    <p class="text-gray-800 break-words whitespace-pre-wrap">${message.content}</p>
+                `;
+                
+                // 如果是當前使用者發布的留言，則顯示編輯和刪除按鈕
+                if (message.createdBy === userId) {
+                    const actionContainer = document.createElement('div');
+                    actionContainer.classList.add('absolute', 'top-2', 'right-2', 'space-x-2');
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M18.828 8.414l-4.242 4.242M14.242 12.828l-5.656-5.656m5.656 5.656l-4.242 4.242M8.414 18.828L5 22.242m3.414-3.414L2.758 15.414M12 12l-6.364 6.364M12 12l-4.242-4.242"/></svg>';
+                    editBtn.addEventListener('click', () => {
+                        editMessageModal.classList.remove('hidden');
+                        editMessageIdInput.value = message.id;
+                        editMessageTextArea.value = message.content;
+                    });
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-1.41-1.41-5.59 5.59-5.59-5.59L5 7l5.59 5.59L5 18l1.41 1.41 5.59-5.59 5.59 5.59L19 18l-5.59-5.59L19 7z"/></svg>';
+                    deleteBtn.addEventListener('click', async () => {
+                         try {
+                             await deleteDoc(doc(getMessageCollectionRef(), message.id));
+                             showNotification("留言已成功刪除。", 'bg-green-500');
+                         } catch (e) {
+                             console.error("刪除留言失敗: ", e);
+                             showNotification("刪除留言失敗。", 'bg-red-500');
+                         }
+                    });
+                    
+                    actionContainer.appendChild(editBtn);
+                    actionContainer.appendChild(deleteBtn);
+                    messageEl.appendChild(actionContainer);
+                }
+                
+                messagesList.appendChild(messageEl);
+            });
+            // 滾動到最新留言
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        // --- 事件監聽器 ---
+
+        // 登入/註冊功能
+        signInBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showNotification("登入成功！", 'bg-green-500');
+            } catch (error) {
+                console.error("登入失敗:", error);
+                showNotification(`登入失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        registerBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                showNotification("註冊成功！您已自動登入。", 'bg-green-500');
+            } catch (error) {
+                console.error("註冊失敗:", error);
+                showNotification(`註冊失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        guestSignInBtn.addEventListener('click', async () => {
+            try {
+                await signInAnonymously(auth);
+                showNotification("訪客登入成功！", 'bg-green-500');
+            } catch (error) {
+                console.error("訪客登入失敗:", error);
+                showNotification(`訪客登入失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                showNotification("已登出。", 'bg-gray-500');
+            } catch (error) {
+                console.error("登出失敗:", error);
+                showNotification("登出失敗。", 'bg-red-500');
+            }
+        });
+
         addBtn.addEventListener('click', () => {
             isEditing = false;
-            selectedReminder = null;
-            modalTitle.textContent = '新增提醒';
             reminderForm.reset();
+            modalTitle.textContent = '新增提醒';
             deleteBtn.classList.add('hidden');
             reminderModal.classList.remove('hidden');
         });
@@ -838,95 +896,170 @@
             reminderModal.classList.add('hidden');
         });
 
+        closeChecklistModalBtn.addEventListener('click', () => {
+            checklistModal.classList.add('hidden');
+        });
+
+        addChecklistItemBtn.addEventListener('click', () => {
+            newChecklistItemInput.value = '';
+            checklistModal.classList.remove('hidden');
+        });
+
+        backToListBtn.addEventListener('click', () => {
+            detailedPlanView.classList.add('hidden');
+            dayPlansList.classList.remove('hidden');
+        });
+        
+        // 留言板事件
+        postMessageBtn.addEventListener('click', async () => {
+            const messageContent = messageTextArea.value.trim();
+            if (messageContent.length === 0) return;
+            
+            try {
+                await addDoc(getMessageCollectionRef(), {
+                    content: messageContent,
+                    createdBy: userId,
+                    timestamp: Timestamp.now(),
+                });
+                messageTextArea.value = '';
+                showNotification("留言發佈成功！", 'bg-green-500');
+            } catch (e) {
+                console.error("發佈留言失敗:", e);
+                showNotification("發佈留言失敗。", 'bg-red-500');
+            }
+        });
+        
+        editMessageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageId = editMessageIdInput.value;
+            const newContent = editMessageTextArea.value.trim();
+            if (newContent.length === 0) {
+                showNotification("留言內容不能為空。", 'bg-red-500');
+                return;
+            }
+            
+            try {
+                const messageRef = doc(getMessageCollectionRef(), messageId);
+                await updateDoc(messageRef, { content: newContent });
+                editMessageModal.classList.add('hidden');
+                showNotification("留言已成功更新。", 'bg-green-500');
+            } catch (e) {
+                console.error("更新留言失敗: ", e);
+                showNotification("更新留言失敗。", 'bg-red-500');
+            }
+        });
+        
+        closeEditMessageModalBtn.addEventListener('click', () => {
+            editMessageModal.classList.add('hidden');
+        });
+
+        // 儲存/更新提醒事項
         reminderForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const title = titleInput.value;
             const content = contentInput.value;
             const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-            const dateStr = dateInput.value;
-            const timeStr = timeInput.value;
-
-            // Combine date and time strings to create a full Date object
-            const combinedDateTime = `${dateStr}T${timeStr}`;
-            const time = new Date(combinedDateTime);
-
+            const date = dateInput.value;
+            const time = timeInput.value;
             const urgency = urgencyInput.value;
             const isPrivate = isPrivateInput.checked;
-
+            
+            const reminderDate = Timestamp.fromDate(new Date(`${date}T${time}:00`));
+            
             const reminderData = {
                 title,
                 content,
                 tags,
-                time: Timestamp.fromDate(time),
+                date: reminderDate,
+                time,
                 urgency,
                 isPrivate,
-                creatorId: userId,
-                checklist: []
+                createdBy: userId,
+                checklist: [],
             };
-
+            
             try {
-                if (isEditing) {
-                    await updateDoc(getReminderDocRef(selectedReminder), reminderData);
-                    showNotification("提醒事項已更新。", 'bg-green-500');
+                if (isEditing && selectedReminder) {
+                    // 更新現有提醒事項
+                    const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                    await updateDoc(reminderRef, reminderData);
+                    showNotification("提醒事項已成功更新。", 'bg-green-500');
                 } else {
+                    // 新增提醒事項
                     await addDoc(getCollectionRef(isPrivate), reminderData);
-                    showNotification("提醒事項已新增。", 'bg-green-500');
+                    showNotification("提醒事項已成功新增。", 'bg-green-500');
                 }
                 reminderModal.classList.add('hidden');
             } catch (e) {
-                console.error("Error adding/updating document: ", e);
-                showNotification("儲存提醒事項時出錯。", 'bg-red-500');
+                console.error("儲存提醒事項失敗: ", e);
+                showNotification("儲存提醒事項失敗。", 'bg-red-500');
+            }
+        });
+        
+        // 編輯按鈕處理
+        editPlanBtn.addEventListener('click', () => {
+            if (selectedReminder) {
+                isEditing = true;
+                modalTitle.textContent = '編輯提醒';
+                deleteBtn.classList.remove('hidden');
+                
+                titleInput.value = selectedReminder.title;
+                contentInput.value = selectedReminder.content;
+                tagsInput.value = selectedReminder.tags.join(', ');
+                const dateObj = selectedReminder.date.toDate();
+                dateInput.value = dateObj.toISOString().split('T')[0];
+                timeInput.value = selectedReminder.time;
+                urgencyInput.value = selectedReminder.urgency;
+                isPrivateInput.checked = selectedReminder.isPrivate;
+                
+                reminderModal.classList.remove('hidden');
             }
         });
 
+        // 刪除按鈕處理
         deleteBtn.addEventListener('click', async () => {
-            if (selectedReminder) {
-                try {
-                    await deleteDoc(getReminderDocRef(selectedReminder));
-                    reminderModal.classList.add('hidden');
-                    dayPlansList.classList.remove('hidden');
-                    detailedPlanView.classList.add('hidden');
-                    showNotification("提醒事項已刪除。", 'bg-green-500');
-                } catch (e) {
-                    console.error("Error deleting document: ", e);
-                    showNotification("刪除提醒事項時出錯。", 'bg-red-500');
+            if (isEditing && selectedReminder) {
+                if (confirm("您確定要刪除此提醒事項嗎？")) {
+                    try {
+                        await deleteDoc(doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id));
+                        reminderModal.classList.add('hidden');
+                        detailedPlanView.classList.add('hidden');
+                        dayPlansList.classList.remove('hidden');
+                        showNotification("提醒事項已成功刪除。", 'bg-green-500');
+                    } catch (e) {
+                        console.error("刪除提醒事項失敗: ", e);
+                        showNotification("刪除提醒事項失敗。", 'bg-red-500');
+                    }
                 }
             }
         });
-
-        editPlanBtn.addEventListener('click', () => {
-            isEditing = true;
-            modalTitle.textContent = '編輯提醒';
-            titleInput.value = selectedReminder.title;
-            contentInput.value = selectedReminder.content;
-            tagsInput.value = selectedReminder.tags ? selectedReminder.tags.join(', ') : '';
-            
-            // Populate new date and time fields
-            const reminderTime = selectedReminder.time instanceof Timestamp ? selectedReminder.time.toDate() : new Date(selectedReminder.time);
-            dateInput.value = reminderTime.toISOString().substring(0, 10);
-            timeInput.value = reminderTime.toISOString().substring(11, 16);
-            
-            urgencyInput.value = selectedReminder.urgency;
-            isPrivateInput.checked = selectedReminder.isPrivate;
-            deleteBtn.classList.remove('hidden');
-            reminderModal.classList.remove('hidden');
-        });
         
-        backToListBtn.addEventListener('click', () => {
-            dayPlansList.classList.remove('hidden');
-            detailedPlanView.classList.add('hidden');
-            selectedReminder = null;
-        });
-
-        calendarGrid.addEventListener('click', (e) => {
-            const dayCell = e.target.closest('.calendar-day-cell');
-            if (dayCell) {
-                selectedDate = new Date(dayCell.dataset.date);
-                renderDayPlans(selectedDate);
+        // 儲存清單項目
+        saveChecklistItemBtn.addEventListener('click', async () => {
+            const newItemText = newChecklistItemInput.value.trim();
+            if (newItemText.length === 0 || !selectedReminder) return;
+            
+            const newItem = { text: newItemText, completed: false };
+            const updatedChecklist = [...(selectedReminder.checklist || []), newItem];
+            
+            try {
+                const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                await updateDoc(reminderRef, { checklist: updatedChecklis });
+                checklistModal.classList.add('hidden');
+                showNotification("清單項目已新增。", 'bg-green-500');
+            } catch (e) {
+                console.error("新增清單項目失敗: ", e);
+                showNotification("新增清單項目失敗。", 'bg-red-500');
             }
         });
+
+        // 篩選與搜尋
+        searchInput.addEventListener('input', () => renderDayPlans(selectedDate));
+        urgencyFilter.addEventListener('change', () => renderDayPlans(selectedDate));
+        tagFilter.addEventListener('change', () => renderDayPlans(selectedDate));
         
+        // 日期導航
         prevMonthBtn.addEventListener('click', () => {
             currentMonth.setMonth(currentMonth.getMonth() - 1);
             renderCalendar();
@@ -937,344 +1070,111 @@
             renderCalendar();
         });
 
-        searchInput.addEventListener('input', () => {
-            renderDayPlans(selectedDate);
-        });
-
-        urgencyFilter.addEventListener('change', () => {
-            renderDayPlans(selectedDate);
-        });
-
-        tagFilter.addEventListener('change', () => {
-            renderDayPlans(selectedDate);
-        });
-
-        // Event listener for the "Add Item" button
-        addChecklistItemBtn.addEventListener('click', () => {
-            if (selectedReminder && selectedReminder.creatorId === userId) {
-                checklistModal.classList.remove('hidden');
-                newChecklistItemInput.focus();
-            } else {
-                showNotification("您沒有權限新增清單項目。", 'bg-red-500');
+        function renderMonthLinks() {
+            monthLinksContainer.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const monthLink = document.createElement('button');
+                monthLink.textContent = monthNames[i];
+                monthLink.classList.add('text-sm', 'text-gray-600', 'font-semibold', 'hover:text-indigo-600', 'transition-colors');
+                monthLink.addEventListener('click', () => {
+                    currentMonth.setMonth(i);
+                    renderCalendar();
+                });
+                monthLinksContainer.appendChild(monthLink);
             }
-        });
-
-        // Event listener for the "Save" button in the new checklist modal
-        saveChecklistItemBtn.addEventListener('click', async () => {
-            const newItemText = newChecklistItemInput.value.trim();
-            if (newItemText && selectedReminder) {
-                const checklist = selectedReminder.checklist || [];
-                checklist.push({ text: newItemText, completed: false });
-                await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
-                showNotification("項目已成功新增。", 'bg-green-500');
-                checklistModal.classList.add('hidden');
-                newChecklistItemInput.value = "";
-            } else {
-                showNotification("項目名稱不能為空。", 'bg-red-500');
-            }
-        });
+        }
+        renderMonthLinks();
         
-        closeChecklistModalBtn.addEventListener('click', () => {
-            checklistModal.classList.add('hidden');
-            newChecklistItemInput.value = "";
-        });
-
-        checklistEl.addEventListener('click', async (e) => {
-            const target = e.target;
-            const index = target.dataset.index;
-            if (target.matches('input[type="checkbox"]')) {
-                 if (selectedReminder.creatorId === userId) {
-                    const checklist = selectedReminder.checklist;
-                    checklist[index].completed = target.checked;
-                    await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
-                 } else {
-                    target.checked = !target.checked;
-                    showNotification("您沒有權限編輯此公開提醒事項。", 'bg-red-500');
-                 }
-            } else if (target.closest('.remove-checklist-item')) {
-                 if (selectedReminder.creatorId === userId) {
-                    const checklist = selectedReminder.checklist;
-                    checklist.splice(index, 1);
-                    await updateDoc(getReminderDocRef(selectedReminder), { checklist: checklist });
-                 }
-            }
-        });
-        
-        // AI Assistant logic
+        // AI 助手功能
         aiAssistantBtn.addEventListener('click', () => {
             aiModal.classList.remove('hidden');
+            aiTaskInput.value = '';
+            aiResponse.innerHTML = '';
             aiResponse.classList.add('hidden');
-            aiTaskInput.value = "";
         });
-
+        
         aiCloseModalBtn.addEventListener('click', () => {
             aiModal.classList.add('hidden');
         });
-
+        
         aiGenerateBtn.addEventListener('click', async () => {
             const userPrompt = aiTaskInput.value.trim();
-            if (!userPrompt) {
-                showNotification("請輸入任務描述。", 'bg-red-500');
-                return;
-            }
-
+            if (!userPrompt) return;
+            
             aiLoading.classList.remove('hidden');
             aiResponse.classList.add('hidden');
-            aiResponse.textContent = "";
-
-            const prompt = `根據用戶的任務描述，將其拆解為最多10個小步驟。每個步驟需要包含標題、內容和預計完成時間（格式為 HH:MM）。請用以下格式回覆，不含任何額外文字或標題：
-- 標題1：內容1（預計時間：HH:MM）
-- 標題2：內容2（預計時間：HH:MM）
-...
-用戶任務：${userPrompt}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                tools: [{ "google_search": {} }],
-            };
             
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${aiApiKey}`;
-
             try {
+                const llmPrompt = `
+                    請將以下任務拆分為「主要標題」及其「條列細項」，以清楚結構輸出。
+                    規則：
+                    1. 主要標題數量不限,但不要超過8個，依任務需要產生。
+                    2. 每個標題下有多個細項，至少 2 條,依據主標題而生產。
+                    3. 輸出時僅包含標題與細項，不要解釋或多餘文字，不要使用粗體字。
+                    4. 細項內容需圍繞「如何在任務發生之前完成準備」，不包含任務執行當下的注意事項，除非任務中明確要求。
+
+                    任務：${userPrompt}
+                `;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: llmPrompt }]
+                    }],
+                };
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${aiApiKey}`;
+                
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API response was not ok: ${response.status} ${response.statusText}, Details: ${errorText}`);
-                }
-
                 const result = await response.json();
-                const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                if (rawText) {
-                    const tasks = parseTasksFromText(rawText);
-                    if (tasks.length > 0) {
-                        aiResponse.innerHTML = tasks.map(task => {
-                            return `<div class="p-3 bg-gray-50 rounded-lg mb-2">
-                                <h4 class="font-semibold">${task.title}</h4>
-                                <p class="text-sm text-gray-700">${task.content}</p>
-                                <p class="text-xs text-gray-500 mt-1">預計完成時間: ${task.time}</p>
-                            </div>`;
-                        }).join('');
-                    } else {
-                        aiResponse.textContent = "無法為您生成任務，請嘗試更詳細的描述。";
+                if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    const lines = generatedText.split('\n');
+                    let htmlContent = '';
+                    let inList = false;
+                    
+                    lines.forEach(line => {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.length === 0) return;
+                        
+                        if (!inList && !trimmedLine.startsWith('•') && !trimmedLine.startsWith('-') && !trimmedLine.match(/^\d\./)) {
+                            htmlContent += `<h3 class="text-lg font-bold text-gray-800 mt-3">${trimmedLine}</h3>`;
+                            htmlContent += `<ul class="space-y-1 text-gray-800">`;
+                            inList = true;
+                        } else if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.match(/^\d\./)) {
+                            htmlContent += `<li>${trimmedLine}</li>`;
+                        } else {
+                            htmlContent += `</ul>`;
+                            htmlContent += `<h3 class="text-lg font-bold text-gray-800 mt-3">${trimmedLine}</h3>`;
+                            htmlContent += `<ul class="space-y-1 text-gray-800">`;
+                        }
+                    });
+                    
+                    if (inList) {
+                        htmlContent += `</ul>`;
                     }
+                    
+                    aiResponse.innerHTML = htmlContent;
                     aiResponse.classList.remove('hidden');
                 } else {
-                    aiResponse.textContent = "無法為您生成任務，請嘗試更詳細的描述。";
+                    aiResponse.innerHTML = `<p class="text-red-500">無法生成計劃，請重試。</p>`;
                     aiResponse.classList.remove('hidden');
                 }
-            } catch (error) {
-                console.error("AI生成任務失敗:", error);
-                aiResponse.textContent = `AI生成任務失敗，請稍後再試。錯誤細節：${error.message}`;
+
+            } catch (e) {
+                console.error("AI 助手呼叫失敗:", e);
+                aiResponse.innerHTML = `<p class="text-red-500">發生錯誤，請稍後再試。</p>`;
                 aiResponse.classList.remove('hidden');
             } finally {
                 aiLoading.classList.add('hidden');
             }
         });
-        
-        function parseTasksFromText(text) {
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            const tasks = [];
-            const regex = /^- (.+)：(.+)（預計時間：(\d{2}:\d{2})）$/;
 
-            lines.forEach(line => {
-                const match = line.match(regex);
-                if (match) {
-                    tasks.push({
-                        title: match[1].trim(),
-                        content: match[2].trim(),
-                        time: match[3].trim()
-                    });
-                }
-            });
-            return tasks;
-        }
-
-        // Event listener for posting a new message
-        postMessageBtn.addEventListener('click', async () => {
-            const messageText = messageTextArea.value.trim();
-            if (!messageText) {
-                showNotification("留言內容不能為空。", 'bg-red-500');
-                return;
-            }
-
-            try {
-                const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
-                await addDoc(messagesCollection, {
-                    text: messageText,
-                    timestamp: Date.now(),
-                    creatorId: userId, // Store the creator's ID
-                });
-                messageTextArea.value = '';
-                showNotification("留言已成功發佈！", 'bg-green-500');
-            } catch (e) {
-                console.error("Error posting message: ", e);
-                showNotification("發佈留言時出錯。", 'bg-red-500');
-            }
-        });
-
-        // Event delegation for message board buttons
-        messagesList.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('edit-message-btn')) {
-                const messageId = e.target.dataset.id;
-                const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
-                const messageDocRef = doc(messagesCollection, messageId);
-                const messageSnap = await getDoc(messageDocRef);
-                
-                if (messageSnap.exists()) {
-                    const messageData = messageSnap.data();
-                    editMessageIdInput.value = messageId;
-                    editMessageTextArea.value = messageData.text;
-                    editMessageModal.classList.remove('hidden');
-                } else {
-                    showNotification("找不到該留言。", 'bg-red-500');
-                }
-            } else if (e.target.classList.contains('delete-message-btn')) {
-                const messageId = e.target.dataset.id;
-                // 使用自訂的確認框替代 window.confirm
-                if (confirm('您確定要刪除這則留言嗎？')) {
-                    try {
-                        const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
-                        const messageDocRef = doc(messagesCollection, messageId);
-                        await deleteDoc(messageDocRef);
-                        showNotification("留言已刪除。", 'bg-green-500');
-                    } catch (e) {
-                        console.error("Error deleting message: ", e);
-                        showNotification("刪除留言時出錯。", 'bg-red-500');
-                    }
-                }
-            }
-        });
-        
-        // Handle edit message form submission
-        editMessageForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageId = editMessageIdInput.value;
-            const newText = editMessageTextArea.value.trim();
-            
-            if (newText) {
-                try {
-                    const messagesCollection = collection(db, `artifacts/${appId}/public/data/messages`);
-                    const messageDocRef = doc(messagesCollection, messageId);
-                    await updateDoc(messageDocRef, { text: newText });
-                    editMessageModal.classList.add('hidden');
-                    showNotification("留言已更新。", 'bg-green-500');
-                } catch (e) {
-                    console.error("Error updating message: ", e);
-                    showNotification("更新留言時出錯。", 'bg-red-500');
-                }
-            } else {
-                showNotification("留言內容不能為空。", 'bg-red-500');
-            }
-        });
-        
-        // Close edit message modal
-        closeEditMessageModalBtn.addEventListener('click', () => {
-            editMessageModal.classList.add('hidden');
-        });
-        
-        // Custom confirm function to avoid `window.confirm`
-        function confirm(message) {
-            // Using a simple check to mimic confirm behavior without blocking.
-            return true; // Or false, depending on the desired behavior without a modal.
-        }
-
-        // --- New Login/Register/Logout Logic ---
-        signInBtn.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value.trim();
-            if (!email || !password) {
-                showNotification("請輸入電子郵件和密碼。", 'bg-red-500');
-                return;
-            }
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                showNotification("登入成功！", 'bg-green-500');
-            } catch (error) {
-                let errorMessage = "登入失敗：請檢查您的電子郵件或密碼。";
-                if (error.code) {
-                    switch (error.code) {
-                        case 'auth/invalid-email':
-                            errorMessage = '電子郵件格式無效。';
-                            break;
-                        case 'auth/user-not-found':
-                        case 'auth/wrong-password':
-                            errorMessage = '電子郵件或密碼不正確。';
-                            break;
-                        case 'auth/operation-not-allowed':
-                            errorMessage = '登入方法未啟用，請聯繫管理員。';
-                            break;
-                        default:
-                            errorMessage = '登入失敗，請稍後再試。';
-                            break;
-                    }
-                }
-                console.error("登入失敗:", error);
-                showNotification(errorMessage, 'bg-red-500');
-            }
-        });
-
-        registerBtn.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const password = loginPasswordInput.value.trim();
-            if (!email || !password) {
-                showNotification("請輸入電子郵件和密碼。", 'bg-red-500');
-                return;
-            }
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                showNotification("註冊成功，正在為您登入...", 'bg-green-500');
-            } catch (error) {
-                 let errorMessage = "註冊失敗：請檢查電子郵件格式或密碼強度。";
-                if (error.code) {
-                    switch (error.code) {
-                        case 'auth/invalid-email':
-                            errorMessage = '電子郵件格式無效。';
-                            break;
-                        case 'auth/email-already-in-use':
-                            errorMessage = '此電子郵件已被註冊。';
-                            break;
-                        case 'auth/weak-password':
-                            errorMessage = '密碼強度不足，請使用至少6個字元。';
-                            break;
-                        case 'auth/operation-not-allowed':
-                            errorMessage = '註冊功能未啟用，請聯繫管理員。';
-                            break;
-                        default:
-                            errorMessage = '註冊失敗，請稍後再試。';
-                            break;
-                    }
-                }
-                console.error("註冊失敗:", error);
-                showNotification(errorMessage, 'bg-red-500');
-            }
-        });
-        
-        guestSignInBtn.addEventListener('click', async () => {
-            try {
-                await signInAnonymously(auth);
-                showNotification("訪客登入成功！", 'bg-green-500');
-            } catch (error) {
-                console.error("訪客登入失敗:", error);
-                showNotification("訪客登入失敗，請稍後再試。", 'bg-red-500');
-            }
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                showNotification("您已登出。", 'bg-green-500');
-            } catch (error) {
-                console.error("登出失敗:", error);
-                showNotification("登出失敗，請稍後再試。", 'bg-red-500');
-            }
-        });
-        
     </script>
 </body>
 </html>
