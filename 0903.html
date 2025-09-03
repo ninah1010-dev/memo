@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共享式聯絡簿</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .border-urgent-3 { border-left-color: #ef4444; }
+        .border-urgent-2 { border-left-color: #f97316; }
+        .border-urgent-1 { border-left-color: #eab308; }
+        .border-routine-2 { border-left-color: #38bdf8; }
+        .border-routine-1 { border-left-color: #84cc16; }
+        .completed-item {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+        .calendar-day-cell:hover {
+            background-color: #e5e7eb;
+            cursor: pointer;
+        }
+        .current-day-highlight {
+            border: 2px solid rgba(99, 102, 241, 0.5);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-start min-h-screen p-4">
+
+    <!-- Notification Bar -->
+    <div id="notification-bar" class="fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-xl shadow-lg text-white font-semibold z-50 transition-opacity duration-300 hidden">
+        <p id="notification-message"></p>
+    </div>
+
+    <!-- AI Assistant Modal -->
+    <div id="ai-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="ai-close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-2xl font-bold text-indigo-600 mb-4">AI 任務助手</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="ai-task-input" class="block text-gray-700 font-semibold mb-1">請描述您想拆分的任務</label>
+                    <input type="text" id="ai-task-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="例如：準備期末考">
+                </div>
+                <div id="ai-loading" class="flex flex-col items-center justify-center hidden">
+                    <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="mt-2 text-gray-600">正在為您拆分任務...</span>
+                </div>
+                <div id="ai-response" class="p-3 bg-sky-100 rounded-xl overflow-y-auto max-h-64 hidden space-y-3"></div>
+                <button id="ai-generate-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full">
+                    生成計劃
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main App Container -->
+    <div id="app-container" class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-7xl mx-auto flex flex-col items-start gap-8">
+        
+        <!-- Landing UI -->
+        <div id="landing-ui" class="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 transition-all duration-300">
+            <!-- App Introduction -->
+            <div id="intro-section" class="w-full md:w-1/2 p-8 rounded-xl bg-indigo-50 text-indigo-900 shadow-lg text-center md:text-left">
+                <h1 class="text-4xl font-bold mb-4">歡迎使用共享式聯絡簿</h1>
+                <p class="text-lg font-medium mb-4">這是一個讓您和您的朋友、家人或同事共同管理提醒事項的應用程式。</p>
+                <ul class="text-sm space-y-2 text-left">
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 建立個人或公開的提醒事項。</li>
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 追蹤每日的待辦清單。</li>
+                    <li class="flex items-center"><svg class="h-4 w-4 mr-2 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> 在留言板上與他人即時溝通。</li>
+                </ul>
+            </div>
+            <!-- Login UI -->
+            <div id="login-ui" class="w-full md:w-1/2 p-8 rounded-xl shadow-lg bg-gray-50 flex flex-col items-center justify-center min-h-[50vh] transition-all duration-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">請登入或註冊</h2>
+                <input id="login-username" type="text" placeholder="使用者名稱" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input id="login-email" type="email" placeholder="電子郵件" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input id="login-password" type="password" placeholder="密碼" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors mb-4">
+                    電子郵件登入
+                </button>
+                <button id="register-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors mb-4">
+                    註冊新帳號
+                </button>
+                <div class="w-full border-t border-gray-200 my-4"></div>
+                <button id="guest-sign-in-btn" class="w-full bg-gray-200 text-gray-700 font-semibold py-4 rounded-xl shadow-md hover:bg-gray-300 transition-colors">
+                    訪客登入
+                </button>
+            </div>
+        </div>
+
+        <!-- Main App UI -->
+        <div id="main-ui" class="hidden w-full flex flex-col md:flex-row gap-8">
+            <!-- User Info and Logout -->
+            <div class="fixed top-4 right-4 flex flex-col items-end space-y-1">
+                <span id="user-info" class="text-sm text-gray-600 text-right"></span>
+                <button id="logout-btn" class="bg-red-500 text-white text-xs font-semibold py-1 px-3 rounded-full hover:bg-red-600 transition-colors">
+                    登出
+                </button>
+            </div>
+            <!-- Left Side: Calendar View -->
+            <div id="calendar-view" class="w-full md:w-1/2">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-4xl font-bold text-gray-800">共享式聯絡簿</h1>
+                </div>
+                
+                <!-- Month Navigation -->
+                <div class="flex items-center justify-between mb-4">
+                    <button id="prev-month-btn" class="text-gray-600 hover:text-gray-800 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <span id="current-month-year" class="text-lg font-bold"></span>
+                    <button id="next-month-btn" class="text-gray-600 hover:text-gray-800 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Weekday headers -->
+                <div class="grid grid-cols-7 gap-1 text-center font-semibold text-gray-600">
+                    <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+                </div>
+                
+                <!-- Calendar Grid -->
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center text-gray-800 mt-2">
+                    <!-- Days will be dynamically inserted here -->
+                </div>
+
+                <!-- All months quick links -->
+                <div id="month-links" class="flex flex-wrap justify-center mt-6 gap-2">
+                    <!-- Month links will be inserted here -->
+                </div>
+                
+            </div>
+
+            <!-- Right Side: Planner View -->
+            <div id="planner-view" class="w-full md:w-1/2">
+                <!-- Day list view -->
+                <div id="day-plans-list" class="w-full">
+                    <h2 id="planner-date" class="text-2xl font-bold text-gray-800 mb-4"></h2>
+                    <button id="add-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors w-full mb-4">
+                        新增提醒
+                    </button>
+                    
+                    <!-- Action Bar -->
+                    <div class="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                        <input type="text" id="search-input" placeholder="搜尋提醒..." class="flex-grow p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                        <select id="urgency-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">所有優先級</option>
+                            <option value="urgent_3">緊急 (最高)</option>
+                            <option value="urgent_2">重要</option>
+                            <option value="urgent_1">須注意 (最低)</option>
+                            <option value="routine_2">例行公事 (最高)</option>
+                            <option value="routine_1">日常 (最低)</option>
+                        </select>
+                        <select id="tag-filter" class="p-3 rounded-xl border border-gray-300 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">所有標籤</option>
+                        </select>
+                    </div>
+
+                    <div id="reminders-list" class="space-y-4">
+                        <!-- Reminders will be dynamically inserted here -->
+                    </div>
+                    <p id="no-reminders-message" class="hidden text-center text-gray-500 mt-8">
+                        目前沒有提醒事項。
+                    </p>
+                </div>
+
+                <!-- Detailed plan view -->
+                <div id="detailed-plan-view" class="hidden w-full">
+                    <button id="back-to-list-btn" class="flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        返回
+                    </button>
+                    <h2 id="detailed-title" class="text-2xl font-bold text-gray-800 mb-2"></h2>
+                    <p id="detailed-date" class="text-sm text-gray-500 mb-4"></p>
+                    <p id="detailed-content" class="text-gray-700 mb-4"></p>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">完成清單</h3>
+                        <button id="add-checklist-item-btn" class="text-indigo-600 font-semibold text-sm hover:underline">新增項目</button>
+                    </div>
+                    <ul id="checklist" class="space-y-2 mb-4">
+                        <!-- Checklist items dynamically inserted here -->
+                    </ul>
+                    
+                    <button id="edit-plan-btn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-blue-600 transition-colors">
+                        編輯計劃
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 留言板區塊 -->
+        <div id="message-board-section" class="w-full mt-8 md:mt-12 bg-gray-50 rounded-3xl shadow-lg p-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">留言板</h2>
+            <div class="space-y-4">
+                <textarea id="message-text-area" rows="4" placeholder="在這裡留下您的留言..." class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <button id="post-message-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-green-700 transition-colors">
+                    發佈留言
+                </button>
+                <div id="messages-list" class="space-y-4 max-h-96 overflow-y-auto">
+                    <!-- Messages will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AI Assistant Button -->
+    <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center hidden">
+        AI
+    </button>
+    
+    <!-- New Modal for adding checklist item -->
+    <div id="checklist-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm relative">
+            <button id="close-checklist-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">新增清單項目</h2>
+            <div class="space-y-4">
+                <input type="text" id="new-checklist-item-input" placeholder="請輸入項目名稱" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="time" id="new-checklist-time-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div class="flex justify-end gap-2">
+                    <button id="save-checklist-item-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Checklist Item Modal -->
+    <div id="edit-checklist-item-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm relative">
+            <button id="close-edit-checklist-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">編輯清單項目</h2>
+            <form id="edit-checklist-form" class="space-y-4">
+                <input type="hidden" id="edit-checklist-index">
+                <div>
+                    <label for="edit-checklist-item-input" class="block text-gray-700 font-semibold mb-1">項目名稱</label>
+                    <input type="text" id="edit-checklist-item-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="edit-checklist-time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
+                    <input type="time" id="edit-checklist-time-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Edit Message Modal -->
+    <div id="edit-message-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="close-edit-message-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">編輯留言</h2>
+            <form id="edit-message-form" class="space-y-4">
+                <input type="hidden" id="edit-message-id">
+                <div>
+                    <label for="edit-message-text-area" class="block text-gray-700 font-semibold mb-1">留言內容</label>
+                    <textarea id="edit-message-text-area" rows="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存變更
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 設定 Firebase 偵錯等級
+        setLogLevel('Debug');
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyB5K7D1i7oy14nOBsjar_BTnfOHn6Lnk0U",
+          authDomain: "memo-539b0.firebaseapp.com",
+          projectId: "memo-539b0",
+          storageBucket: "memo-539b0.firebasestorage.app",
+          messagingSenderId: "174221928040",
+          appId: "1:174221928040:web:14ebe006f93bf33157bddd",
+          measurementId: "G-QF74MDK8W9"
+        };
+        
+        let db, auth, analytics, userId;
+        let publicReminders = [];
+        let privateReminders = [];
+        let publicMessages = [];
+        let currentMonth = new Date();
+        let selectedDate = new Date();
+        let selectedReminder = null;
+        let isEditing = false;
+        
+        // 使用者提供的 AI API 金鑰
+        const aiApiKey = "AIzaSyCEIsgA8IDtFfJX1sNNv48xnm1TTYKInm4";
+
+        const landingUi = document.getElementById('landing-ui');
+        const mainUi = document.getElementById('main-ui');
+        const userInfoEl = document.getElementById('user-info');
+        const logoutBtn = document.getElementById('logout-btn');
+        const messageBoardSection = document.getElementById('message-board-section');
+        const aiAssistantBtn = document.getElementById('ai-assistant-btn');
+
+        // Modal elements
+        const reminderModal = document.getElementById('reminder-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const addBtn = document.getElementById('add-btn');
+        const reminderForm = document.getElementById('reminder-form');
+        const modalTitle = document.getElementById('modal-title');
+        const saveBtn = document.getElementById('save-btn');
+        const deleteBtn = document.getElementById('delete-btn');
+        const isPrivateInput = document.getElementById('is-private-input');
+        const titleInput = document.getElementById('title-input');
+        const contentInput = document.getElementById('content-input');
+        const tagsInput = document.getElementById('tags-input');
+        const dateInput = document.getElementById('date-input');
+        const urgencyInput = document.getElementById('urgency-input');
+
+        // Calendar elements
+        const currentMonthYearEl = document.getElementById('current-month-year');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const prevMonthBtn = document.getElementById('prev-month-btn');
+        const nextMonthBtn = document.getElementById('next-month-btn');
+        const monthLinksContainer = document.getElementById('month-links');
+
+        // Planner elements
+        const dayPlansList = document.getElementById('day-plans-list');
+        const plannerDateEl = document.getElementById('planner-date');
+        const remindersListEl = document.getElementById('reminders-list');
+        const noRemindersMessage = document.getElementById('no-reminders-message');
+        const searchInput = document.getElementById('search-input');
+        const urgencyFilter = document.getElementById('urgency-filter');
+        const tagFilter = document.getElementById('tag-filter');
+
+        // Detailed view elements
+        const detailedPlanView = document.getElementById('detailed-plan-view');
+        const backToListBtn = document.getElementById('back-to-list-btn');
+        const detailedTitleEl = document.getElementById('detailed-title');
+        const detailedDateEl = document.getElementById('detailed-date');
+        const detailedContentEl = document.getElementById('detailed-content');
+        const checklistEl = document.getElementById('checklist');
+        const addChecklistItemBtn = document.getElementById('add-checklist-item-btn');
+        const editPlanBtn = document.getElementById('edit-plan-btn');
+
+        // AI Assistant elements
+        const aiModal = document.getElementById('ai-modal');
+        const aiCloseModalBtn = document.getElementById('ai-close-modal-btn');
+        const aiTaskInput = document.getElementById('ai-task-input');
+        const aiGenerateBtn = document.getElementById('ai-generate-btn');
+        const aiLoading = document.getElementById('ai-loading');
+        const aiResponse = document.getElementById('ai-response');
+
+        // Notification bar
+        const notificationBar = document.getElementById('notification-bar');
+        const notificationMessage = document.getElementById('notification-message');
+        
+        // Checklist Modal elements
+        const checklistModal = document.getElementById('checklist-modal');
+        const closeChecklistModalBtn = document.getElementById('close-checklist-modal-btn');
+        const newChecklistItemInput = document.getElementById('new-checklist-item-input');
+        const newChecklistTimeInput = document.getElementById('new-checklist-time-input');
+        const saveChecklistItemBtn = document.getElementById('save-checklist-item-btn');
+
+        // Edit Checklist Modal elements
+        const editChecklistItemModal = document.getElementById('edit-checklist-item-modal');
+        const closeEditChecklistModalBtn = document.getElementById('close-edit-checklist-modal-btn');
+        const editChecklistForm = document.getElementById('edit-checklist-form');
+        const editChecklistIndexInput = document.getElementById('edit-checklist-index');
+        const editChecklistItemInput = document.getElementById('edit-checklist-item-input');
+        const editChecklistTimeInput = document.getElementById('edit-checklist-time-input');
+        
+        // Message Board elements
+        const messageTextArea = document.getElementById('message-text-area');
+        const postMessageBtn = document.getElementById('post-message-btn');
+        const messagesList = document.getElementById('messages-list');
+        
+        // Edit Message Modal
+        const editMessageModal = document.getElementById('edit-message-modal');
+        const closeEditMessageModalBtn = document.getElementById('close-edit-message-modal-btn');
+        const editMessageForm = document.getElementById('edit-message-form');
+        const editMessageIdInput = document.getElementById('edit-message-id');
+        const editMessageTextArea = document.getElementById('edit-message-text-area');
+        
+        // Login elements
+        const loginUsernameInput = document.getElementById('login-username');
+        const loginEmailInput = document.getElementById('login-email');
+        const loginPasswordInput = document.getElementById('login-password');
+        const signInBtn = document.getElementById('sign-in-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const guestSignInBtn = document.getElementById('guest-sign-in-btn');
+
+
+        const URGENCY_LEVELS = {
+            'urgent_3': { name: '緊急', class: 'border-urgent-3' },
+            'urgent_2': { name: '重要', class: 'border-urgent-2' },
+            'urgent_1': { name: '須注意', class: 'border-urgent-1' },
+            'routine_2': { name: '例行公事', class: 'border-routine-2' },
+            'routine_1': { name: '日常', class: 'border-routine-1' }
+        };
+
+        const monthNames = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
+        
+        const aiResponseColors = ['bg-white'];
+
+        // --- Firebase 初始化與認證 ---
+        window.onload = async function() {
+            try {
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                analytics = getAnalytics(app);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                // 設定認證狀態變更監聽器
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        const displayName = user.displayName || "訪客";
+                        userInfoEl.textContent = `已登入: ${displayName}`;
+                        setupFirestoreListeners();
+                        renderCalendar();
+                        renderDayPlans(selectedDate);
+                        showMainUi();
+                    } else {
+                        showLandingUi();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase 初始化失敗:", error);
+                showNotification("Firebase 初始化失敗，請檢查配置。", 'bg-red-500');
+            }
+        }
+        
+        function showMainUi() {
+            landingUi.classList.add('hidden');
+            mainUi.classList.remove('hidden');
+            messageBoardSection.classList.remove('hidden');
+            aiAssistantBtn.classList.remove('hidden');
+        }
+
+        function showLandingUi() {
+            landingUi.classList.remove('hidden');
+            mainUi.classList.add('hidden');
+            messageBoardSection.classList.add('hidden');
+            aiAssistantBtn.classList.add('hidden');
+        }
+
+        function showNotification(message, colorClass) {
+            notificationMessage.textContent = message;
+            notificationBar.className = `fixed top-4 left-1/2 transform -translate-x-1/2 p-4 rounded-xl shadow-lg font-semibold z-50 transition-opacity duration-300 ${colorClass}`;
+            notificationBar.classList.remove('hidden');
+            setTimeout(() => {
+                notificationBar.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 根據隱私設定取得 Firestore collection 的參考
+        function getCollectionRef(isPrivate) {
+            if (!userId) {
+                console.error("userID 未找到。無法取得 collection 參考。");
+                return null;
+            }
+            if (isPrivate) {
+                // 私人資料路徑
+                return collection(db, `artifacts/${firebaseConfig.appId}/users/${userId}/reminders`);
+            } else {
+                // 公開資料路徑
+                return collection(db, `artifacts/${firebaseConfig.appId}/public/data/reminders`);
+            }
+        }
+        
+        // 留言板的 collection 參考，所有留言都是公開的
+        function getMessageCollectionRef() {
+            return collection(db, `artifacts/${firebaseConfig.appId}/public/data/messages`);
+        }
+
+        // 設定 Firestore 即時監聽器
+        function setupFirestoreListeners() {
+            // 監聽公開提醒事項
+            const publicRemindersRef = getCollectionRef(false);
+            onSnapshot(publicRemindersRef, (snapshot) => {
+                publicReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCalendar();
+                renderDayPlans(selectedDate);
+            });
+            
+            // 監聽私人提醒事項
+            const privateRemindersRef = getCollectionRef(true);
+            onSnapshot(privateRemindersRef, (snapshot) => {
+                privateReminders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCalendar();
+                renderDayPlans(selectedDate);
+            });
+            
+            // 聽留言板
+            const messagesRef = getMessageCollectionRef();
+            onSnapshot(query(messagesRef), (snapshot) => {
+                publicMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderMessages();
+            });
+        }
+        
+        // --- UI 渲染功能 ---
+        
+        function renderCalendar() {
+            calendarGrid.innerHTML = '';
+            currentMonthYearEl.textContent = `${currentMonth.getFullYear()}年 ${monthNames[currentMonth.getMonth()]}`;
+            
+            const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const lastDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            const startWeekday = firstDayOfMonth.getDay();
+            
+            const totalReminders = [...publicReminders, ...privateReminders];
+            
+            // 渲染前一個月的灰色日期
+            const prevMonthLastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0).getDate();
+            for (let i = startWeekday - 1; i >= 0; i--) {
+                const dayEl = document.createElement('div');
+                dayEl.textContent = prevMonthLastDay - i;
+                dayEl.classList.add('p-2', 'rounded-xl', 'text-gray-400', 'text-sm');
+                calendarGrid.appendChild(dayEl);
+            }
+
+            // 渲染當月日期
+            for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+                const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
+                const dayEl = document.createElement('div');
+                const hasReminder = totalReminders.some(r => {
+                    const reminderDate = r.date.toDate();
+                    return reminderDate.getFullYear() === dayDate.getFullYear() &&
+                           reminderDate.getMonth() === dayDate.getMonth() &&
+                           reminderDate.getDate() === dayDate.getDate();
+                });
+                
+                dayEl.classList.add('p-2', 'rounded-xl', 'text-sm', 'relative', 'calendar-day-cell');
+                dayEl.textContent = i;
+                dayEl.dataset.date = dayDate.toISOString();
+                
+                if (hasReminder) {
+                    dayEl.classList.add('bg-blue-50', 'text-indigo-800', 'font-semibold');
+                }
+                
+                if (dayDate.toDateString() === selectedDate.toDateString()) {
+                    dayEl.classList.add('bg-indigo-300', 'text-indigo-900', 'font-bold', 'shadow-md');
+                }
+                
+                const today = new Date();
+                if (dayDate.toDateString() === today.toDateString()) {
+                    dayEl.classList.add('current-day-highlight');
+                }
+                
+                dayEl.addEventListener('click', () => {
+                    selectedDate = dayDate;
+                    renderCalendar();
+                    renderDayPlans(selectedDate);
+                });
+                
+                calendarGrid.appendChild(dayEl);
+            }
+        }
+        
+        function renderDayPlans(date) {
+            plannerDateEl.textContent = `${date.getFullYear()}年 ${monthNames[date.getMonth()]} ${date.getDate()}日`;
+            remindersListEl.innerHTML = '';
+            
+            // 合併公眾和私人提醒事項
+            const allReminders = [...publicReminders, ...privateReminders];
+            
+            const filteredReminders = allReminders
+                .filter(r => {
+                    const reminderDate = r.date.toDate();
+                    return reminderDate.getFullYear() === date.getFullYear() &&
+                           reminderDate.getMonth() === date.getMonth() &&
+                           reminderDate.getDate() === date.getDate();
+                })
+                .sort((a, b) => {
+                    const dateA = a.date.toDate();
+                    const dateB = b.date.toDate();
+                    return dateA - dateB;
+                });
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const urgencyFilterValue = urgencyFilter.value;
+            const tagFilterValue = tagFilter.value;
+            
+            const tags = new Set();
+            allReminders.forEach(r => {
+                if (r.tags) {
+                    r.tags.forEach(tag => tags.add(tag));
+                }
+            });
+            tagFilter.innerHTML = '<option value="all">所有標籤</option>';
+            tags.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+            tagFilter.value = tagFilterValue;
+
+            const finalReminders = filteredReminders.filter(r => {
+                const matchesSearch = r.title.toLowerCase().includes(searchTerm) || 
+                                      r.content.toLowerCase().includes(searchTerm) ||
+                                      (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm))) ||
+                                      (r.createdByDisplayName && r.createdByDisplayName.toLowerCase().includes(searchTerm));
+                const matchesUrgency = urgencyFilterValue === 'all' || r.urgency === urgencyFilterValue;
+                const matchesTag = tagFilterValue === 'all' || (r.tags && r.tags.includes(tagFilterValue));
+                return matchesSearch && matchesUrgency && matchesTag;
+            });
+            
+            if (finalReminders.length === 0) {
+                noRemindersMessage.classList.remove('hidden');
+            } else {
+                noRemindersMessage.classList.add('hidden');
+                finalReminders.forEach(reminder => {
+                    const reminderEl = document.createElement('div');
+                    const urgencyClass = URGENCY_LEVELS[reminder.urgency]?.class || '';
+                    reminderEl.classList.add(
+                        'flex', 'flex-col', 'p-4', 'bg-white', 'rounded-xl', 'shadow-sm', 
+                        'border-l-4', urgencyClass, 'cursor-pointer', 'transition-all', 'hover:shadow-md'
+                    );
+                    reminderEl.dataset.id = reminder.id;
+                    reminderEl.dataset.private = reminder.isPrivate;
+                    
+                    const titleTime = document.createElement('div');
+                    titleTime.classList.add('flex', 'justify-between', 'items-center', 'mb-2');
+                    titleTime.innerHTML = `
+                        <span class="text-lg font-semibold text-gray-800">${reminder.title}</span>
+                        <span class="text-sm text-gray-500">${new Date(reminder.date.toDate()).toLocaleDateString('zh-TW')}</span>
+                    `;
+                    reminderEl.appendChild(titleTime);
+                    
+                    const content = document.createElement('p');
+                    content.classList.add('text-gray-600', 'mb-2', 'line-clamp-2');
+                    content.textContent = reminder.content;
+                    reminderEl.appendChild(content);
+                    
+                    const metaInfo = document.createElement('div');
+                    metaInfo.classList.add('flex', 'flex-wrap', 'gap-2', 'text-xs', 'text-gray-500');
+                    if (reminder.tags && reminder.tags.length > 0) {
+                        reminder.tags.forEach(tag => {
+                            const tagEl = document.createElement('span');
+                            tagEl.classList.add('bg-gray-200', 'rounded-full', 'px-2', 'py-1');
+                            tagEl.textContent = tag;
+                            metaInfo.appendChild(tagEl);
+                        });
+                    }
+                    metaInfo.innerHTML += `<span class="italic">建立者: ${reminder.createdByDisplayName || '訪客'}</span>`;
+                    reminderEl.appendChild(metaInfo);
+                    
+                    reminderEl.addEventListener('click', () => {
+                        selectedReminder = reminder;
+                        renderDetailedView(reminder);
+                    });
+                    
+                    remindersListEl.appendChild(reminderEl);
+                });
+            }
+        }
+        
+        function renderDetailedView(reminder) {
+            dayPlansList.classList.add('hidden');
+            detailedPlanView.classList.remove('hidden');
+            
+            detailedTitleEl.textContent = reminder.title;
+            const reminderDate = reminder.date.toDate();
+            detailedDateEl.textContent = `${reminderDate.toLocaleDateString('zh-TW')}`;
+            detailedContentEl.textContent = reminder.content;
+            
+            checklistEl.innerHTML = '';
+            
+            if (reminder.checklist) {
+                reminder.checklist.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'items-center', 'space-x-2', 'p-2', 'bg-gray-100', 'rounded-xl', 'transition-colors', 'hover:bg-gray-200');
+                    if (item.completed) {
+                        li.classList.add('completed-item');
+                    }
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = item.completed;
+                    checkbox.classList.add('form-checkbox', 'h-5', 'w-5', 'text-indigo-600', 'rounded', 'border-gray-300');
+                    checkbox.addEventListener('change', async () => {
+                        item.completed = checkbox.checked;
+                        try {
+                            const reminderRef = doc(db, getCollectionRef(reminder.isPrivate).path, reminder.id);
+                            await updateDoc(reminderRef, { checklist: reminder.checklist });
+                        } catch (e) {
+                            console.error("更新清單項目失敗: ", e);
+                            showNotification("更新清單項目失敗。", 'bg-red-500');
+                        }
+                    });
+                    
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = item.text;
+                    textSpan.classList.add('text-gray-800');
+                    
+                    const timeSpan = document.createElement('span');
+                    timeSpan.textContent = item.time ? ` (${item.time})` : '';
+                    timeSpan.classList.add('text-xs', 'text-gray-500', 'italic', 'ml-2');
+
+                    const editBtn = document.createElement('button');
+                    editBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232L18.768 8.768M14.232 6.768L6.768 14.232a2 2 0 00-.586 1.118l-.944 4.72a1 1 0 001.171 1.171l4.72-.944a2 2 0 001.118-.586l7.464-7.464a2 2 0 000-2.828l-3.536-3.536a2 2 0 00-2.828 0z" /></svg>';
+                    editBtn.classList.add('ml-auto', 'transition-colors');
+                    editBtn.addEventListener('click', () => {
+                        editChecklistItemModal.classList.remove('hidden');
+                        editChecklistIndexInput.value = index;
+                        editChecklistItemInput.value = item.text;
+                        editChecklistTimeInput.value = item.time || '';
+                    });
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-1.41-1.41-5.59 5.59-5.59-5.59L5 7l5.59 5.59L5 18l1.41 1.41 5.59-5.59 5.59 5.59L19 18l-5.59-5.59L19 7z"/></svg>';
+                    deleteBtn.classList.add('ml-2', 'transition-colors');
+                    deleteBtn.addEventListener('click', async () => {
+                        const newChecklist = reminder.checklist.filter(i => i !== item);
+                        try {
+                            const reminderRef = doc(db, getCollectionRef(reminder.isPrivate).path, reminder.id);
+                            await updateDoc(reminderRef, { checklist: newChecklist });
+                            showNotification("清單項目已成功刪除。", 'bg-green-500');
+                        } catch (e) {
+                            console.error("刪除清單項目失敗: ", e);
+                            showNotification("刪除清單項目失敗。", 'bg-red-500');
+                        }
+                    });
+                    
+                    li.appendChild(checkbox);
+                    li.appendChild(textSpan);
+                    li.appendChild(timeSpan);
+                    li.appendChild(editBtn);
+                    li.appendChild(deleteBtn);
+                    checklistEl.appendChild(li);
+                });
+            }
+        }
+        
+        // 渲染留言板
+        function renderMessages() {
+            messagesList.innerHTML = '';
+            
+            // 排序留言，最新的在最上面
+            const sortedMessages = [...publicMessages].sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate());
+
+            sortedMessages.forEach(message => {
+                const messageEl = document.createElement('div');
+                messageEl.classList.add('p-4', 'rounded-xl', 'bg-white', 'shadow-sm', 'relative');
+                messageEl.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-700">發佈者: ${message.createdByDisplayName || '訪客'}</span>
+                        <span class="text-xs text-gray-400">${message.timestamp.toDate().toLocaleString()}</span>
+                    </div>
+                    <p class="text-gray-800 break-words whitespace-pre-wrap">${message.content}</p>
+                `;
+                
+                // 如果是當前使用者發布的留言，則顯示編輯和刪除按鈕
+                if (message.createdBy === userId) {
+                    const actionContainer = document.createElement('div');
+                    actionContainer.classList.add('absolute', 'top-2', 'right-2', 'space-x-2');
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M18.828 8.414l-4.242 4.242M14.242 12.828l-5.656-5.656m5.656 5.656l-4.242 4.242M8.414 18.828L5 22.242m3.414-3.414L2.758 15.414M12 12l-6.364 6.364M12 12l-4.242-4.242"/></svg>';
+                    editBtn.addEventListener('click', () => {
+                        editMessageModal.classList.remove('hidden');
+                        editMessageIdInput.value = message.id;
+                        editMessageTextArea.value = message.content;
+                    });
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-1.41-1.41-5.59 5.59-5.59-5.59L5 7l5.59 5.59L5 18l1.41 1.41 5.59-5.59 5.59 5.59L19 18l-5.59-5.59L19 7z"/></svg>';
+                    deleteBtn.addEventListener('click', async () => {
+                         try {
+                             await deleteDoc(doc(getMessageCollectionRef(), message.id));
+                             showNotification("留言已成功刪除。", 'bg-green-500');
+                         } catch (e) {
+                             console.error("刪除留言失敗: ", e);
+                             showNotification("刪除留言失敗。", 'bg-red-500');
+                         }
+                    });
+                    
+                    actionContainer.appendChild(editBtn);
+                    actionContainer.appendChild(deleteBtn);
+                    messageEl.appendChild(actionContainer);
+                }
+                
+                messagesList.appendChild(messageEl);
+            });
+            // 滾動到最新留言
+            messagesList.scrollTop = messagesList.scrollHeight;
+        }
+
+        // --- 事件監聽器 ---
+
+        // 登入/註冊功能
+        signInBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                showNotification("登入成功！", 'bg-green-500');
+            } catch (error) {
+                console.error("登入失敗:", error);
+                showNotification(`登入失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        registerBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+            const username = loginUsernameInput.value;
+
+            if (!username) {
+                showNotification("請輸入使用者名稱。", 'bg-red-500');
+                return;
+            }
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, {
+                    displayName: username
+                });
+                showNotification("註冊成功！您已自動登入。", 'bg-green-500');
+            } catch (error) {
+                console.error("註冊失敗:", error);
+                showNotification(`註冊失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        guestSignInBtn.addEventListener('click', async () => {
+            try {
+                await signInAnonymously(auth);
+                showNotification("訪客登入成功！", 'bg-green-500');
+            } catch (error) {
+                console.error("訪客登入失敗:", error);
+                showNotification(`訪客登入失敗: ${error.message}`, 'bg-red-500');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                showNotification("已登出。", 'bg-gray-500');
+            } catch (error) {
+                console.error("登出失敗:", error);
+                showNotification("登出失敗。", 'bg-red-500');
+            }
+        });
+
+        addBtn.addEventListener('click', () => {
+            isEditing = false;
+            reminderForm.reset();
+            modalTitle.textContent = '新增提醒';
+            deleteBtn.classList.add('hidden');
+            reminderModal.classList.remove('hidden');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            reminderModal.classList.add('hidden');
+        });
+
+        closeChecklistModalBtn.addEventListener('click', () => {
+            checklistModal.classList.add('hidden');
+        });
+
+        closeEditChecklistModalBtn.addEventListener('click', () => {
+            editChecklistItemModal.classList.add('hidden');
+        });
+
+        addChecklistItemBtn.addEventListener('click', () => {
+            if (!selectedReminder) {
+                showNotification("請先選擇一個提醒事項以新增清單項目。", 'bg-red-500');
+                return;
+            }
+            newChecklistItemInput.value = '';
+            newChecklistTimeInput.value = '';
+            checklistModal.classList.remove('hidden');
+        });
+
+        backToListBtn.addEventListener('click', () => {
+            detailedPlanView.classList.add('hidden');
+            dayPlansList.classList.remove('hidden');
+        });
+        
+        // 留言板事件
+        postMessageBtn.addEventListener('click', async () => {
+            const messageContent = messageTextArea.value.trim();
+            if (messageContent.length === 0) return;
+            
+            try {
+                await addDoc(getMessageCollectionRef(), {
+                    content: messageContent,
+                    createdBy: userId,
+                    createdByDisplayName: auth.currentUser.displayName || '訪客',
+                    timestamp: Timestamp.now(),
+                });
+                messageTextArea.value = '';
+                showNotification("留言發佈成功！", 'bg-green-500');
+            } catch (e) {
+                console.error("發佈留言失敗:", e);
+                showNotification("發佈留言失敗。", 'bg-red-500');
+            }
+        });
+        
+        editMessageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageId = editMessageIdInput.value;
+            const newContent = editMessageTextArea.value.trim();
+            if (newContent.length === 0) {
+                showNotification("留言內容不能為空。", 'bg-red-500');
+                return;
+            }
+            
+            try {
+                const messageRef = doc(getMessageCollectionRef(), messageId);
+                await updateDoc(messageRef, { content: newContent });
+                editMessageModal.classList.add('hidden');
+                showNotification("留言已成功更新。", 'bg-green-500');
+            } catch (e) {
+                console.error("更新留言失敗: ", e);
+                showNotification("更新留言失敗。", 'bg-red-500');
+            }
+        });
+        
+        closeEditMessageModalBtn.addEventListener('click', () => {
+            editMessageModal.classList.add('hidden');
+        });
+
+        // 儲存/更新提醒事項
+        reminderForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = titleInput.value;
+            const content = contentInput.value;
+            const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            const date = dateInput.value;
+            const urgency = urgencyInput.value;
+            const isPrivate = isPrivateInput.checked;
+            
+            const reminderDate = Timestamp.fromDate(new Date(date));
+            
+            const reminderData = {
+                title,
+                content,
+                tags,
+                date: reminderDate,
+                urgency,
+                isPrivate,
+                createdBy: userId,
+                createdByDisplayName: auth.currentUser.displayName || '訪客',
+                checklist: selectedReminder && selectedReminder.checklist ? selectedReminder.checklist : [],
+            };
+            
+            try {
+                if (isEditing && selectedReminder) {
+                    // 更新現有提醒事項
+                    const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                    await updateDoc(reminderRef, reminderData);
+                    showNotification("提醒事項已成功更新。", 'bg-green-500');
+                } else {
+                    // 新增提醒事項
+                    await addDoc(getCollectionRef(isPrivate), reminderData);
+                    showNotification("提醒事項已成功新增。", 'bg-green-500');
+                }
+                reminderModal.classList.add('hidden');
+            } catch (e) {
+                console.error("儲存提醒事項失敗: ", e);
+                showNotification("儲存提醒事項失敗。", 'bg-red-500');
+            }
+        });
+        
+        // 編輯按鈕處理
+        editPlanBtn.addEventListener('click', () => {
+            if (selectedReminder) {
+                isEditing = true;
+                modalTitle.textContent = '編輯提醒';
+                deleteBtn.classList.remove('hidden');
+                
+                titleInput.value = selectedReminder.title;
+                contentInput.value = selectedReminder.content;
+                tagsInput.value = selectedReminder.tags.join(', ');
+                const dateObj = selectedReminder.date.toDate();
+                dateInput.value = dateObj.toISOString().split('T')[0];
+                urgencyInput.value = selectedReminder.urgency;
+                isPrivateInput.checked = selectedReminder.isPrivate;
+                
+                reminderModal.classList.remove('hidden');
+            }
+        });
+
+        // 刪除按鈕處理
+        deleteBtn.addEventListener('click', async () => {
+            if (isEditing && selectedReminder) {
+                // Since confirm() is not allowed, this is a placeholder. In a real app, use a custom modal.
+                const shouldDelete = true; 
+                if (shouldDelete) {
+                    try {
+                        await deleteDoc(doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id));
+                        reminderModal.classList.add('hidden');
+                        detailedPlanView.classList.add('hidden');
+                        dayPlansList.classList.remove('hidden');
+                        showNotification("提醒事項已成功刪除。", 'bg-green-500');
+                    } catch (e) {
+                        console.error("刪除提醒事項失敗: ", e);
+                        showNotification("刪除提醒事項失敗。", 'bg-red-500');
+                    }
+                }
+            }
+        });
+        
+        saveChecklistItemBtn.addEventListener('click', async () => {
+            const newItemText = newChecklistItemInput.value.trim();
+            if (newItemText.length === 0 || !selectedReminder) return;
+
+            const newItem = { text: newItemText, completed: false };
+            const updatedChecklist = [...(selectedReminder.checklist || []), newItem];
+
+            try {
+                const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                await updateDoc(reminderRef, { checklist: updatedChecklist });
+                // 儲存成功後，關閉清單視窗
+                checklistModal.classList.add('hidden');
+                showNotification("清單項目已新增。", 'bg-green-500');
+            } catch (e) {
+                console.error("新增清單項目失敗: ", e);
+                showNotification("新增清單項目失敗。", 'bg-red-500');
+    }
+        });
+
+        // 編輯清單項目
+        editChecklistForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const index = editChecklistIndexInput.value;
+            const newText = editChecklistItemInput.value.trim();
+            const newTime = editChecklistTimeInput.value;
+
+            if (newText.length === 0) {
+                showNotification("項目名稱不能為空。", 'bg-red-500');
+                return;
+            }
+            
+            const updatedChecklist = [...selectedReminder.checklist];
+            updatedChecklist[index].text = newText;
+            updatedChecklist[index].time = newTime;
+
+            try {
+                const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                await updateDoc(reminderRef, { checklist: updatedChecklist });
+                checklistModal.classList.add('hidden');
+                showNotification("清單項目已刪除。", 'bg-green-500');
+            } catch (e) {
+                console.error("刪除清單項目失敗: ", e);
+                showNotification("刪除清單項目失敗。", 'bg-red-500');
+            }
+        });
+
+        // 篩選與搜尋
+        searchInput.addEventListener('input', () => renderDayPlans(selectedDate));
+        urgencyFilter.addEventListener('change', () => renderDayPlans(selectedDate));
+        tagFilter.addEventListener('change', () => renderDayPlans(selectedDate));
+        
+        // 日期導航
+        prevMonthBtn.addEventListener('click', () => {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
+        });
+
+        function renderMonthLinks() {
+            monthLinksContainer.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                const monthLink = document.createElement('button');
+                monthLink.textContent = monthNames[i];
+                monthLink.classList.add('text-sm', 'text-gray-600', 'font-semibold', 'hover:text-indigo-600', 'transition-colors');
+                monthLink.addEventListener('click', () => {
+                    currentMonth.setMonth(i);
+                    renderCalendar();
+                });
+                monthLinksContainer.appendChild(monthLink);
+            }
+        }
+        renderMonthLinks();
+        
+        // AI 助手功能
+        aiAssistantBtn.addEventListener('click', () => {
+            aiModal.classList.remove('hidden');
+            aiTaskInput.value = '';
+            aiResponse.innerHTML = '';
+            aiResponse.classList.add('hidden');
+        });
+        
+        aiCloseModalBtn.addEventListener('click', () => {
+            aiModal.classList.add('hidden');
+        });
+        
+        aiGenerateBtn.addEventListener('click', async () => {
+            const userPrompt = aiTaskInput.value.trim();
+            if (!userPrompt) return;
+            
+            aiLoading.classList.remove('hidden');
+            aiResponse.classList.add('hidden');
+            
+            try {
+                const llmPrompt = `
+                    請將以下任務拆分為「主要標題」及其「條列細項」，以清楚結構輸出。
+                    規則：
+                    1. 主要標題數量不限,但不要超過8個，依任務需要產生。
+                    2. 每個標題下有多個細項，至少 2 條,依據主標題而生產。
+                    3. 輸出時僅包含標題與細項，不要解釋或多餘文字，不要使用粗體字。
+                    4. 細項內容需圍繞「如何在任務發生之前完成準備」，不包含任務執行當下的注意事項，除非任務中明確要求。
+
+                    任務：${userPrompt}
+                `;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: llmPrompt }]
+                    }],
+                };
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${aiApiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0] && result.candidates[0].content) {
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    const lines = generatedText.split('\n');
+                    let htmlContent = '';
+                    let inList = false;
+                    
+                    lines.forEach(line => {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.length === 0) return;
+                        
+                        if (!inList && !trimmedLine.startsWith('•') && !trimmedLine.startsWith('-') && !trimmedLine.match(/^\d\./)) {
+                            htmlContent += `<h3 class="text-lg font-bold text-gray-800 mt-3">${trimmedLine}</h3>`;
+                            htmlContent += `<ul class="space-y-1 text-gray-800">`;
+                            inList = true;
+                        } else if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.match(/^\d\./)) {
+                            htmlContent += `<li>${trimmedLine}</li>`;
+                        } else {
+                            htmlContent += `</ul>`;
+                            htmlContent += `<h3 class="text-lg font-bold text-gray-800 mt-3">${trimmedLine}</h3>`;
+                            htmlContent += `<ul class="space-y-1 text-gray-800">`;
+                        }
+                    });
+                    
+                    if (inList) {
+                        htmlContent += `</ul>`;
+                    }
+                    
+                    aiResponse.innerHTML = htmlContent;
+                    aiResponse.classList.remove('hidden');
+                } else {
+                    aiResponse.innerHTML = `<p class="text-red-500">無法生成計劃，請重試。</p>`;
+                    aiResponse.classList.remove('hidden');
+                }
+
+            } catch (e) {
+                console.error("AI 助手呼叫失敗:", e);
+                aiResponse.innerHTML = `<p class="text-red-500">發生錯誤，請稍後再試。</p>`;
+                aiResponse.classList.remove('hidden');
+            } finally {
+                aiLoading.classList.add('hidden');
+            }
+        });
+
+    </script>
+</body>
+</html>
