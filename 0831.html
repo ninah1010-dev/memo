@@ -86,6 +86,7 @@
             <!-- Login UI -->
             <div id="login-ui" class="w-full md:w-1/2 p-8 rounded-xl shadow-lg bg-gray-50 flex flex-col items-center justify-center min-h-[50vh] transition-all duration-300">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">請登入或註冊</h2>
+                <input id="login-username" type="text" placeholder="使用者名稱" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <input id="login-email" type="email" placeholder="電子郵件" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <input id="login-password" type="password" placeholder="密碼" class="w-full p-4 mb-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <button id="sign-in-btn" class="w-full bg-indigo-600 text-white font-semibold py-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors mb-4">
@@ -223,64 +224,6 @@
         </div>
     </div>
     
-    <!-- Add/Edit Modal -->
-    <div id="reminder-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
-        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
-            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-            <h2 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">新增提醒</h2>
-            <form id="reminder-form" class="space-y-4">
-                <div>
-                    <label for="title-input" class="block text-gray-700 font-semibold mb-1">標題</label>
-                    <input type="text" id="title-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div>
-                    <label for="content-input" class="block text-gray-700 font-semibold mb-1">詳細內容</label>
-                    <textarea id="content-input" rows="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-                </div>
-                <div>
-                    <label for="tags-input" class="block text-gray-700 font-semibold mb-1">標籤 (以逗號分隔)</label>
-                    <input type="text" id="tags-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <div class="flex gap-4">
-                    <div class="flex-1">
-                        <label for="date-input" class="block text-gray-700 font-semibold mb-1">日期</label>
-                        <input type="date" id="date-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                    <div class="flex-1">
-                        <label for="time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
-                        <input type="time" id="time-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    </div>
-                </div>
-                <div>
-                    <label for="urgency-input" class="block text-gray-700 font-semibold mb-1">優先級</label>
-                    <select id="urgency-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="urgent_3">緊急 (最高)</option>
-                        <option value="urgent_2">重要</option>
-                        <option value="urgent_1">須注意 (最低)</option>
-                        <option value="routine_2">例行公事 (最高)</option>
-                        <option value="routine_1">日常 (最低)</option>
-                    </select>
-                </div>
-                <div class="flex items-center">
-                    <input type="checkbox" id="is-private-input" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 mr-2">
-                    <label for="is-private-input" class="text-gray-700">設為私人（僅自己可見）</label>
-                </div>
-                <div class="flex justify-end gap-4">
-                    <button type="submit" id="save-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
-                        儲存
-                    </button>
-                    <button type="button" id="delete-btn" class="bg-red-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-red-600 transition-colors hidden">
-                        刪除
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
     <!-- AI Assistant Button -->
     <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center hidden">
         AI
@@ -297,12 +240,41 @@
             <h2 class="text-xl font-bold text-gray-800 mb-4">新增清單項目</h2>
             <div class="space-y-4">
                 <input type="text" id="new-checklist-item-input" placeholder="請輸入項目名稱" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="time" id="new-checklist-time-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <div class="flex justify-end gap-2">
                     <button id="save-checklist-item-btn" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
                         儲存
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit Checklist Item Modal -->
+    <div id="edit-checklist-item-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-sm relative">
+            <button id="close-edit-checklist-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">編輯清單項目</h2>
+            <form id="edit-checklist-form" class="space-y-4">
+                <input type="hidden" id="edit-checklist-index">
+                <div>
+                    <label for="edit-checklist-item-input" class="block text-gray-700 font-semibold mb-1">項目名稱</label>
+                    <input type="text" id="edit-checklist-item-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="edit-checklist-time-input" class="block text-gray-700 font-semibold mb-1">時間</label>
+                    <input type="time" id="edit-checklist-time-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -332,7 +304,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -383,7 +355,6 @@
         const contentInput = document.getElementById('content-input');
         const tagsInput = document.getElementById('tags-input');
         const dateInput = document.getElementById('date-input');
-        const timeInput = document.getElementById('time-input');
         const urgencyInput = document.getElementById('urgency-input');
 
         // Calendar elements
@@ -428,7 +399,16 @@
         const checklistModal = document.getElementById('checklist-modal');
         const closeChecklistModalBtn = document.getElementById('close-checklist-modal-btn');
         const newChecklistItemInput = document.getElementById('new-checklist-item-input');
+        const newChecklistTimeInput = document.getElementById('new-checklist-time-input');
         const saveChecklistItemBtn = document.getElementById('save-checklist-item-btn');
+
+        // Edit Checklist Modal elements
+        const editChecklistItemModal = document.getElementById('edit-checklist-item-modal');
+        const closeEditChecklistModalBtn = document.getElementById('close-edit-checklist-modal-btn');
+        const editChecklistForm = document.getElementById('edit-checklist-form');
+        const editChecklistIndexInput = document.getElementById('edit-checklist-index');
+        const editChecklistItemInput = document.getElementById('edit-checklist-item-input');
+        const editChecklistTimeInput = document.getElementById('edit-checklist-time-input');
         
         // Message Board elements
         const messageTextArea = document.getElementById('message-text-area');
@@ -443,6 +423,7 @@
         const editMessageTextArea = document.getElementById('edit-message-text-area');
         
         // Login elements
+        const loginUsernameInput = document.getElementById('login-username');
         const loginEmailInput = document.getElementById('login-email');
         const loginPasswordInput = document.getElementById('login-password');
         const signInBtn = document.getElementById('sign-in-btn');
@@ -475,11 +456,8 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        if (user.email) {
-                            userInfoEl.textContent = `已登入: ${user.email}`;
-                        } else {
-                            userInfoEl.textContent = `訪客登入: ${userId}`;
-                        }
+                        const displayName = user.displayName || "訪客";
+                        userInfoEl.textContent = `已登入: ${displayName}`;
                         setupFirestoreListeners();
                         renderCalendar();
                         renderDayPlans(selectedDate);
@@ -555,7 +533,7 @@
                 renderDayPlans(selectedDate);
             });
             
-            // 監聽留言板
+            // 聽留言板
             const messagesRef = getMessageCollectionRef();
             onSnapshot(query(messagesRef), (snapshot) => {
                 publicMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -638,9 +616,9 @@
                            reminderDate.getDate() === date.getDate();
                 })
                 .sort((a, b) => {
-                    const timeA = new Date(`1970/01/01 ${a.time}`);
-                    const timeB = new Date(`1970/01/01 ${b.time}`);
-                    return timeA - timeB;
+                    const dateA = a.date.toDate();
+                    const dateB = b.date.toDate();
+                    return dateA - dateB;
                 });
             
             const searchTerm = searchInput.value.toLowerCase();
@@ -665,7 +643,8 @@
             const finalReminders = filteredReminders.filter(r => {
                 const matchesSearch = r.title.toLowerCase().includes(searchTerm) || 
                                       r.content.toLowerCase().includes(searchTerm) ||
-                                      (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+                                      (r.tags && r.tags.some(tag => tag.toLowerCase().includes(searchTerm))) ||
+                                      (r.createdByDisplayName && r.createdByDisplayName.toLowerCase().includes(searchTerm));
                 const matchesUrgency = urgencyFilterValue === 'all' || r.urgency === urgencyFilterValue;
                 const matchesTag = tagFilterValue === 'all' || (r.tags && r.tags.includes(tagFilterValue));
                 return matchesSearch && matchesUrgency && matchesTag;
@@ -689,7 +668,7 @@
                     titleTime.classList.add('flex', 'justify-between', 'items-center', 'mb-2');
                     titleTime.innerHTML = `
                         <span class="text-lg font-semibold text-gray-800">${reminder.title}</span>
-                        <span class="text-sm text-gray-500">${reminder.time}</span>
+                        <span class="text-sm text-gray-500">${new Date(reminder.date.toDate()).toLocaleDateString('zh-TW')}</span>
                     `;
                     reminderEl.appendChild(titleTime);
                     
@@ -708,7 +687,7 @@
                             metaInfo.appendChild(tagEl);
                         });
                     }
-                    metaInfo.innerHTML += `<span class="italic">建立者: ${reminder.createdBy.substring(0, 8)}...</span>`;
+                    metaInfo.innerHTML += `<span class="italic">建立者: ${reminder.createdByDisplayName || '訪客'}</span>`;
                     reminderEl.appendChild(metaInfo);
                     
                     reminderEl.addEventListener('click', () => {
@@ -727,13 +706,13 @@
             
             detailedTitleEl.textContent = reminder.title;
             const reminderDate = reminder.date.toDate();
-            detailedDateEl.textContent = `${reminderDate.getFullYear()}年 ${monthNames[reminderDate.getMonth()]} ${reminderDate.getDate()}日 ${reminder.time}`;
+            detailedDateEl.textContent = `${reminderDate.toLocaleDateString('zh-TW')}`;
             detailedContentEl.textContent = reminder.content;
             
             checklistEl.innerHTML = '';
             
             if (reminder.checklist) {
-                reminder.checklist.forEach(item => {
+                reminder.checklist.forEach((item, index) => {
                     const li = document.createElement('li');
                     li.classList.add('flex', 'items-center', 'space-x-2', 'p-2', 'bg-gray-100', 'rounded-xl', 'transition-colors', 'hover:bg-gray-200');
                     if (item.completed) {
@@ -759,14 +738,29 @@
                     textSpan.textContent = item.text;
                     textSpan.classList.add('text-gray-800');
                     
+                    const timeSpan = document.createElement('span');
+                    timeSpan.textContent = item.time ? ` (${item.time})` : '';
+                    timeSpan.classList.add('text-xs', 'text-gray-500', 'italic', 'ml-2');
+
+                    const editBtn = document.createElement('button');
+                    editBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232L18.768 8.768M14.232 6.768L6.768 14.232a2 2 0 00-.586 1.118l-.944 4.72a1 1 0 001.171 1.171l4.72-.944a2 2 0 001.118-.586l7.464-7.464a2 2 0 000-2.828l-3.536-3.536a2 2 0 00-2.828 0z" /></svg>';
+                    editBtn.classList.add('ml-auto', 'transition-colors');
+                    editBtn.addEventListener('click', () => {
+                        editChecklistItemModal.classList.remove('hidden');
+                        editChecklistIndexInput.value = index;
+                        editChecklistItemInput.value = item.text;
+                        editChecklistTimeInput.value = item.time || '';
+                    });
+
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '<svg class="h-4 w-4 text-gray-500 hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-1.41-1.41-5.59 5.59-5.59-5.59L5 7l5.59 5.59L5 18l1.41 1.41 5.59-5.59 5.59 5.59L19 18l-5.59-5.59L19 7z"/></svg>';
-                    deleteBtn.classList.add('ml-auto', 'transition-colors', 'hidden'); // 隱藏刪除按鈕
+                    deleteBtn.classList.add('ml-2', 'transition-colors');
                     deleteBtn.addEventListener('click', async () => {
                         const newChecklist = reminder.checklist.filter(i => i !== item);
                         try {
                             const reminderRef = doc(db, getCollectionRef(reminder.isPrivate).path, reminder.id);
                             await updateDoc(reminderRef, { checklist: newChecklist });
+                            showNotification("清單項目已成功刪除。", 'bg-green-500');
                         } catch (e) {
                             console.error("刪除清單項目失敗: ", e);
                             showNotification("刪除清單項目失敗。", 'bg-red-500');
@@ -775,6 +769,8 @@
                     
                     li.appendChild(checkbox);
                     li.appendChild(textSpan);
+                    li.appendChild(timeSpan);
+                    li.appendChild(editBtn);
                     li.appendChild(deleteBtn);
                     checklistEl.appendChild(li);
                 });
@@ -793,7 +789,7 @@
                 messageEl.classList.add('p-4', 'rounded-xl', 'bg-white', 'shadow-sm', 'relative');
                 messageEl.innerHTML = `
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-gray-700">使用者ID: ${message.createdBy}</span>
+                        <span class="text-xs font-bold text-gray-700">發佈者: ${message.createdByDisplayName || '訪客'}</span>
                         <span class="text-xs text-gray-400">${message.timestamp.toDate().toLocaleString()}</span>
                     </div>
                     <p class="text-gray-800 break-words whitespace-pre-wrap">${message.content}</p>
@@ -855,8 +851,18 @@
             e.preventDefault();
             const email = loginEmailInput.value;
             const password = loginPasswordInput.value;
+            const username = loginUsernameInput.value;
+
+            if (!username) {
+                showNotification("請輸入使用者名稱。", 'bg-red-500');
+                return;
+            }
+
             try {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, {
+                    displayName: username
+                });
                 showNotification("註冊成功！您已自動登入。", 'bg-green-500');
             } catch (error) {
                 console.error("註冊失敗:", error);
@@ -900,8 +906,17 @@
             checklistModal.classList.add('hidden');
         });
 
+        closeEditChecklistModalBtn.addEventListener('click', () => {
+            editChecklistItemModal.classList.add('hidden');
+        });
+
         addChecklistItemBtn.addEventListener('click', () => {
+            if (!selectedReminder) {
+                showNotification("請先選擇一個提醒事項以新增清單項目。", 'bg-red-500');
+                return;
+            }
             newChecklistItemInput.value = '';
+            newChecklistTimeInput.value = '';
             checklistModal.classList.remove('hidden');
         });
 
@@ -919,6 +934,7 @@
                 await addDoc(getMessageCollectionRef(), {
                     content: messageContent,
                     createdBy: userId,
+                    createdByDisplayName: auth.currentUser.displayName || '訪客',
                     timestamp: Timestamp.now(),
                 });
                 messageTextArea.value = '';
@@ -961,22 +977,21 @@
             const content = contentInput.value;
             const tags = tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
             const date = dateInput.value;
-            const time = timeInput.value;
             const urgency = urgencyInput.value;
             const isPrivate = isPrivateInput.checked;
             
-            const reminderDate = Timestamp.fromDate(new Date(`${date}T${time}:00`));
+            const reminderDate = Timestamp.fromDate(new Date(date));
             
             const reminderData = {
                 title,
                 content,
                 tags,
                 date: reminderDate,
-                time,
                 urgency,
                 isPrivate,
                 createdBy: userId,
-                checklist: [],
+                createdByDisplayName: auth.currentUser.displayName || '訪客',
+                checklist: selectedReminder && selectedReminder.checklist ? selectedReminder.checklist : [],
             };
             
             try {
@@ -1009,7 +1024,6 @@
                 tagsInput.value = selectedReminder.tags.join(', ');
                 const dateObj = selectedReminder.date.toDate();
                 dateInput.value = dateObj.toISOString().split('T')[0];
-                timeInput.value = selectedReminder.time;
                 urgencyInput.value = selectedReminder.urgency;
                 isPrivateInput.checked = selectedReminder.isPrivate;
                 
@@ -1020,7 +1034,9 @@
         // 刪除按鈕處理
         deleteBtn.addEventListener('click', async () => {
             if (isEditing && selectedReminder) {
-                if (confirm("您確定要刪除此提醒事項嗎？")) {
+                // Since confirm() is not allowed, this is a placeholder. In a real app, use a custom modal.
+                const shouldDelete = true; 
+                if (shouldDelete) {
                     try {
                         await deleteDoc(doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id));
                         reminderModal.classList.add('hidden');
@@ -1035,22 +1051,49 @@
             }
         });
         
-        // 儲存清單項目
         saveChecklistItemBtn.addEventListener('click', async () => {
             const newItemText = newChecklistItemInput.value.trim();
             if (newItemText.length === 0 || !selectedReminder) return;
-            
+
             const newItem = { text: newItemText, completed: false };
             const updatedChecklist = [...(selectedReminder.checklist || []), newItem];
-            
+
             try {
                 const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
-                await updateDoc(reminderRef, { checklist: updatedChecklis });
+                await updateDoc(reminderRef, { checklist: updatedChecklist });
+                // 儲存成功後，關閉清單視窗
                 checklistModal.classList.add('hidden');
                 showNotification("清單項目已新增。", 'bg-green-500');
             } catch (e) {
                 console.error("新增清單項目失敗: ", e);
                 showNotification("新增清單項目失敗。", 'bg-red-500');
+    }
+        });
+
+        // 編輯清單項目
+        editChecklistForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const index = editChecklistIndexInput.value;
+            const newText = editChecklistItemInput.value.trim();
+            const newTime = editChecklistTimeInput.value;
+
+            if (newText.length === 0) {
+                showNotification("項目名稱不能為空。", 'bg-red-500');
+                return;
+            }
+            
+            const updatedChecklist = [...selectedReminder.checklist];
+            updatedChecklist[index].text = newText;
+            updatedChecklist[index].time = newTime;
+
+            try {
+                const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
+                await updateDoc(reminderRef, { checklist: updatedChecklist });
+                checklistModal.classList.add('hidden');
+                showNotification("清單項目已刪除。", 'bg-green-500');
+            } catch (e) {
+                console.error("刪除清單項目失敗: ", e);
+                showNotification("刪除清單項目失敗。", 'bg-red-500');
             }
         });
 
