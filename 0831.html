@@ -224,6 +224,60 @@
         </div>
     </div>
     
+    <!-- Add/Edit Modal -->
+    <div id="reminder-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-lg relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h2 id="modal-title" class="text-2xl font-bold text-gray-800 mb-4">新增提醒</h2>
+            <form id="reminder-form" class="space-y-4">
+                <div>
+                    <label for="title-input" class="block text-gray-700 font-semibold mb-1">標題</label>
+                    <input type="text" id="title-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="content-input" class="block text-gray-700 font-semibold mb-1">詳細內容</label>
+                    <textarea id="content-input" rows="4" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label for="tags-input" class="block text-gray-700 font-semibold mb-1">標籤 (以逗號分隔)</label>
+                    <input type="text" id="tags-input" class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label for="date-input" class="block text-gray-700 font-semibold mb-1">日期</label>
+                        <input type="date" id="date-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label for="urgency-input" class="block text-gray-700 font-semibold mb-1">優先級</label>
+                    <select id="urgency-input" required class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="urgent_3">緊急 (最高)</option>
+                        <option value="urgent_2">重要</option>
+                        <option value="urgent_1">須注意 (最低)</option>
+                        <option value="routine_2">例行公事 (最高)</option>
+                        <option value="routine_1">日常 (最低)</option>
+                    </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is-private-input" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 mr-2">
+                    <label for="is-private-input" class="text-gray-700">設為私人（僅自己可見）</label>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button type="submit" id="save-btn" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-indigo-700 transition-colors">
+                        儲存
+                    </button>
+                    <button type="button" id="delete-btn" class="bg-red-500 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:bg-red-600 transition-colors hidden">
+                        刪除
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <!-- AI Assistant Button -->
     <button id="ai-assistant-btn" class="fixed bottom-8 right-8 bg-indigo-600 text-white font-bold text-lg rounded-full h-16 w-16 shadow-lg hover:bg-indigo-700 transition-colors flex items-center justify-center hidden">
         AI
@@ -533,7 +587,7 @@
                 renderDayPlans(selectedDate);
             });
             
-            // 聽留言板
+            // 監聽留言板
             const messagesRef = getMessageCollectionRef();
             onSnapshot(query(messagesRef), (snapshot) => {
                 publicMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -911,10 +965,6 @@
         });
 
         addChecklistItemBtn.addEventListener('click', () => {
-            if (!selectedReminder) {
-                showNotification("請先選擇一個提醒事項以新增清單項目。", 'bg-red-500');
-                return;
-            }
             newChecklistItemInput.value = '';
             newChecklistTimeInput.value = '';
             checklistModal.classList.remove('hidden');
@@ -1051,23 +1101,27 @@
             }
         });
         
+        // 儲存清單項目
         saveChecklistItemBtn.addEventListener('click', async () => {
             const newItemText = newChecklistItemInput.value.trim();
-            if (newItemText.length === 0 || !selectedReminder) return;
-
-            const newItem = { text: newItemText, completed: false };
+            const newItemTime = newChecklistTimeInput.value;
+            if (newItemText.length === 0 || !selectedReminder) {
+                showNotification("清單項目名稱不能為空。", 'bg-red-500');
+                return;
+            }
+            
+            const newItem = { text: newItemText, completed: false, time: newItemTime };
             const updatedChecklist = [...(selectedReminder.checklist || []), newItem];
-
+            
             try {
                 const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
                 await updateDoc(reminderRef, { checklist: updatedChecklist });
-                // 儲存成功後，關閉清單視窗
                 checklistModal.classList.add('hidden');
                 showNotification("清單項目已新增。", 'bg-green-500');
             } catch (e) {
                 console.error("新增清單項目失敗: ", e);
                 showNotification("新增清單項目失敗。", 'bg-red-500');
-    }
+            }
         });
 
         // 編輯清單項目
@@ -1089,11 +1143,11 @@
             try {
                 const reminderRef = doc(db, getCollectionRef(selectedReminder.isPrivate).path, selectedReminder.id);
                 await updateDoc(reminderRef, { checklist: updatedChecklist });
-                checklistModal.classList.add('hidden');
-                showNotification("清單項目已刪除。", 'bg-green-500');
+                editChecklistItemModal.classList.add('hidden');
+                showNotification("清單項目已更新。", 'bg-green-500');
             } catch (e) {
-                console.error("刪除清單項目失敗: ", e);
-                showNotification("刪除清單項目失敗。", 'bg-red-500');
+                console.error("更新清單項目失敗: ", e);
+                showNotification("更新清單項目失敗。", 'bg-red-500');
             }
         });
 
